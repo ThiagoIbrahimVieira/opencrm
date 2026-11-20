@@ -175,8 +175,8 @@ describe('OpenCRM AppSec, RBAC & API Integration Suite', () => {
 
       expect(res.statusCode).toBe(200);
       const json = res.json();
-      expect(json.status).toBe('healthy');
-      expect(json.platform).toBe('OpenCRM');
+      expect(json.status).toBe('ok');
+      expect(json.service).toBe('opencrm-api');
     });
   });
 

@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-11-20T23:41:51.233Z",
+  "backendUrl": "http://localhost:3333",
+  "frontendUrl": "http://localhost:5173",
+  "testCases": [
+    {
+      "id": "TC-SMOKE-01",
+      "title": "Backend Health Check Direct",
+      "endpoint": "GET /api/health",
+      "status": 200,
+      "durationMs": 3,
+      "passed": true,
+      "details": {
+        "status": "ok",
+        "service": "opencrm-api"
+      }
+    },
+    {
+      "id": "TC-SMOKE-02",
+      "title": "Frontend Index Page Serve",
+      "endpoint": "GET /",
+      "status": 200,
+      "durationMs": 5,
+      "passed": true,
+      "details": {
+        "contentLength": 1720
+      }
+    },
+    {
+      "id": "TC-SMOKE-03",
+      "title": "Frontend Vite Reverse Proxy to Backend",
+      "endpoint": "GET :5173/api/health",
+      "status": 200,
+      "durationMs": 21,
+      "passed": true,
+      "details": {
+        "status": "ok",
+        "service": "opencrm-api"
+      }
+    },
+    {
+      "id": "TC-SMOKE-04",
+      "title": "Demo Login AuraCell Real DB Authentication",
+      "endpoint": "POST /api/auth/login-demo (auracell-jardins)",
+      "status": 200,
+      "durationMs": 3413,
+      "passed": true,
+      "details": {
+        "userName": "Thiago Vasconcelos",
+        "userEmail": "thiago@auracell.com.br",
+        "userRole": "ADMIN",
+        "storeName": "AuraCell — Loja Jardins",
+        "storeSegment": "Celulares & Assistência",
+        "hasAccessToken": true
+      }
+    },
+    {
+      "id": "TC-SMOKE-05",
+      "title": "Real Supabase Inventory Retrieval (AuraCell)",
+      "endpoint": "GET /api/inventory/primary",
+      "status": 200,
+      "durationMs": 1402,
+      "passed": true,
+      "details": {
+        "itemCount": 1,
+        "firstItemTitle": "iPhone 16 Pro Max 256GB Titânio Natural",
+        "firstItemStatus": "DISPONIVEL"
+      }
+    },
+    {
+      "id": "TC-SMOKE-06",
+      "title": "Query Multi-Tenant Store Memberships",
+      "endpoint": "GET /api/stores/mine",
+      "status": 200,
+      "durationMs": 891,
+      "passed": true,
+      "details": {
+        "membershipCount": 3,
+        "stores": [
+          {
+            "name": "AuraCell — Loja Jardins",
+            "slug": "auracell-jardins",
+            "role": "ADMIN"
+          },
+          {
+            "name": "Sabor & Brasa",
+            "slug": "sabor-e-brasa",
+            "role": "ADMIN"
+          },
+          {
+            "name": "Atelier Linho",
+            "slug": "atelier-linho",
+            "role": "ADMIN"
+          }
+        ]
+      }
+    },
+    {
+      "id": "TC-SMOKE-07",
+      "title": "Multi-Tenant Store Switching (Sabor & Brasa)",
+      "endpoint": "POST /api/stores/switch",
+      "status": 200,
+      "durationMs": 1825,
+      "passed": true,
+      "details": {
+        "activeStoreName": "Sabor & Brasa",
+        "activeStoreSegment": "Lanchonete & Hamburgueria",
+        "role": "ADMIN"
+      }
+    },
+    {
+      "id": "TC-SMOKE-08",
+      "title": "RLS Strict Isolation Verification in Supabase",
+      "endpoint": "GET /api/inventory/primary (Sabor & Brasa Context)",
+      "status": 200,
+      "durationMs": 1252,
+      "passed": true,
+      "details": {
+        "itemCount": 1,
+        "itemTitles": [
+          "Smash Burger Duplo Defumado"
+        ],
+        "containsStoreBItem": true,
+        "containsStoreAItem": false
+      }
+    },
+    {
+      "id": "TC-SMOKE-09",
+      "title": "Dashboard Summary Telemetry with Supabase DB",
+      "endpoint": "GET /api/dashboard/summary",
+      "status": 200,
+      "durationMs": 3227,
+      "passed": true,
+      "details": {
+        "availableSmartphones": 1,
+        "reservedSmartphones": 0,
+        "evaluatingSmartphones": 0,
+        "lowStockAccessories": 0,
+        "totalAccessoryUnits": 0,
+        "activeWarranties": 0,
+        "expiringWarrantiesCount": 0,
+        "expiringBatchesCount": 0,
+        "weeklyOutputs": 0,
+        "weeklyRevenue": 0,
+        "customerCounts": {
+          "total": 0,
+          "active": 0,
+          "lead": 0,
+          "inactive": 0
+        }
+      }
+    }
+  ],
+  "overallStatus": "PASS"
+}

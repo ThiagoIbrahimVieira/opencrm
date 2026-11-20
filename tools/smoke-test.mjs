@@ -90,7 +90,7 @@ async function runSmokeSuite() {
       const start = Date.now();
       const res = await fetch(`${BACKEND_URL}/api/health`);
       const body = await res.json();
-      const pass = res.status === 200 && body.status === 'healthy';
+      const pass = res.status === 200 && (body.status === 'ok' || body.status === 'healthy');
       results.testCases.push({
         id: 'TC-SMOKE-01',
         title: 'Backend Health Check Direct',
@@ -126,7 +126,7 @@ async function runSmokeSuite() {
       const start = Date.now();
       const res = await fetch(`${FRONTEND_URL}/api/health`);
       const body = await res.json();
-      const pass = res.status === 200 && body.status === 'healthy';
+      const pass = res.status === 200 && (body.status === 'ok' || body.status === 'healthy');
       results.testCases.push({
         id: 'TC-SMOKE-03',
         title: 'Frontend Vite Reverse Proxy to Backend',

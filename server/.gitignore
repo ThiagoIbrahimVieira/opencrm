@@ -1,6 +1,28 @@
+# Dependencies
 node_modules/
 dist/
-*.log
+build/
+
+# Environment & Sensitive Credentials (ZERO-LEAK)
 .env
 .env.*
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+credentials.json
+service-account*.json
+client_secret*.json
+
+# Allow example template
 !.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
