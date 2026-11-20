@@ -8,7 +8,13 @@ const hex64Regex = /^[0-9a-fA-F]{64}$/;
 const envSchema = z.object({
   PORT: z.coerce.number().default(3333),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  CORS_ORIGIN: z.string().default('http://localhost:3000,http://localhost:5173'),
+  CORS_ORIGIN: z
+    .string()
+    .default('http://localhost:3000,http://localhost:5173')
+    .refine(
+      (val) => val.split(',').map((s) => s.trim()).filter(Boolean).length > 0,
+      'CORS_ORIGIN deve conter ao menos uma origem válida separada por vírgula.'
+    ),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatória para conexão com o banco.'),
   DIRECT_URL: z.string().min(1, 'DIRECT_URL é obrigatória para migrações do Prisma.'),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET deve ter no mínimo 32 caracteres.'),
@@ -26,12 +32,18 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
-const parsedEnv = envSchema.safeParse(process.env);
+let validatedEnv: z.infer<typeof envSchema>;
 
-if (!parsedEnv.success) {
+try {
+  validatedEnv = envSchema.parse(process.env);
+} catch (err: any) {
   console.error('❌ [FAIL-FAST] Erro crítico nas variáveis de ambiente:');
-  console.error(JSON.stringify(parsedEnv.error.format(), null, 2));
+  if (err instanceof z.ZodError) {
+    console.error(JSON.stringify(err.format(), null, 2));
+  } else {
+    console.error(err);
+  }
   process.exit(1);
 }
 
-export const env = parsedEnv.data;
+export const env = validatedEnv;
