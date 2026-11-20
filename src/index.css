@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Newsreader", "Instrument Serif", Georgia, serif;
+  --font-display: "Instrument Serif", "Newsreader", Georgia, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-canvas: #F4F2EC;
+  --color-sidebar: #ECEAE2;
+  --color-sidebar-border: #DFDDD3;
+  --color-surface: #FFFFFF;
+  --color-surface-border: #E5E2D9;
+  --color-ink: #1F1E1B;
+  --color-ink-muted: #6E6B63;
+  --color-olive: #4F5A47;
+  --color-olive-hover: #3E4738;
+  --color-sand: #E8E3D9;
+  --color-sand-text: #2C2A25;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: var(--font-sans);
+    background-color: #F4F2EC;
+    color: #1F1E1B;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1,
+  .font-editorial {
+    font-family: var(--font-serif);
+    text-wrap: balance;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle custom scrollbars matching Warm Editorial Boutique palette */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D6D2C7;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B8B3A6;
+}
+
+/* Clean print layout for Termo de Garantia AuraCell & Etiquetas */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #auracell-printable-document,
+  #auracell-printable-document * {
+    visibility: visible;
+  }
+
+  #auracell-printable-document {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+    padding: 24px;
+    background: #FFFFFF !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

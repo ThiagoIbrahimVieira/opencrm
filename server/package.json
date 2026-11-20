@@ -1,0 +1,40 @@
+{
+    "name":  "opencrm-server",
+    "version":  "1.0.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "tsx watch src/server.ts",
+                    "build":  "npx prisma generate && tsc",
+                    "start":  "node dist/server.js",
+                    "lint":  "tsc --noEmit",
+                    "db:generate":  "prisma generate",
+                    "db:migrate":  "prisma migrate dev",
+                    "db:deploy":  "prisma migrate deploy",
+                    "db:seed":  "tsx prisma/seed.ts",
+                    "test":  "vitest run",
+                    "test:db":  "vitest run src/db/rls.test.ts",
+                    "prebuild":  "prisma generate"
+                },
+    "dependencies":  {
+                         "@fastify/cookie":  "^9.4.0",
+                         "@fastify/cors":  "^9.0.1",
+                         "@fastify/helmet":  "^11.1.1",
+                         "@fastify/rate-limit":  "^9.1.0",
+                         "@prisma/client":  "^5.22.0",
+                         "dotenv":  "^16.4.5",
+                         "fastify":  "^4.28.1",
+                         "google-auth-library":  "^11.3.4",
+                         "hash-wasm":  "^4.13.0",
+                         "jsonwebtoken":  "^9.0.2",
+                         "zod":  "^3.23.8"
+                     },
+    "devDependencies":  {
+                            "@types/jsonwebtoken":  "^9.0.6",
+                            "@types/node":  "^22.14.0",
+                            "prisma":  "^5.22.0",
+                            "tsx":  "^4.19.0",
+                            "typescript":  "^5.5.4",
+                            "vitest":  "^2.1.0"
+                        }
+}

@@ -1,0 +1,100 @@
+name: OpenCRM CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  test-and-build:
+    name: Test & Build (Multi-Tenant, AppSec, Frontend & Backend)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: opencrm_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # ==========================================
+      # 1. FRONTEND: Testes e Build de Produção
+      # ==========================================
+      - name: Instalar Dependências do Frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Validar Tipagem do Frontend (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Executar Testes Unitários do Frontend
+        run: npm test
+
+      - name: Executar Build de Produção do Frontend (Vite)
+        run: npm run build
+
+      # ==========================================
+      # 2. BACKEND: Migrations, RLS e Testes
+      # ==========================================
+      - name: Instalar Dependências do Backend
+        working-directory: ./server
+        run: npm ci --legacy-peer-deps
+
+      - name: Gerar Cliente Prisma
+        working-directory: ./server
+        run: npx prisma generate
+
+      - name: Executar Migrações e RLS no PostgreSQL 16
+        working-directory: ./server
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+        run: npx prisma migrate deploy
+
+      - name: Executar Seed Idempotente (3 Lojas Demo)
+        working-directory: ./server
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          JWT_ACCESS_SECRET: "ci-test-access-secret-minimum-32-characters"
+          JWT_REFRESH_SECRET: "ci-test-refresh-secret-minimum-32-characters"
+          PII_ENCRYPTION_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          PII_HMAC_KEY_HEX: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          ENABLE_DEMO_ACCOUNTS: "true"
+        run: npx tsx prisma/seed.ts
+
+      - name: Validar Tipagem do Backend (TypeScript)
+        working-directory: ./server
+        run: npx tsc --noEmit
+
+      - name: Executar Suíte de Testes do Backend (Vitest)
+        working-directory: ./server
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          JWT_ACCESS_SECRET: "ci-test-access-secret-minimum-32-characters"
+          JWT_REFRESH_SECRET: "ci-test-refresh-secret-minimum-32-characters"
+          PII_ENCRYPTION_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          PII_HMAC_KEY_HEX: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+          ENABLE_DEMO_ACCOUNTS: "true"
+        run: |
+          npm test
+          npm run test:db

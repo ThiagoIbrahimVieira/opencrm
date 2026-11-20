@@ -1,0 +1,325 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  VENDEDOR
+}
+
+enum PrimaryItemStatus {
+  DISPONIVEL
+  RESERVADO
+  EM_AVALIACAO
+  VENDIDO
+  ESGOTADO
+}
+
+enum CustomerStatus {
+  ATIVO
+  LEAD
+  INATIVO
+}
+
+model Store {
+  id             String   @id @default(uuid()) @db.Uuid
+  slug           String   @unique
+  name           String
+  segment        String
+  templateConfig Json     @map("template_config")
+  catalogOptions Json?    @default("{}") @map("catalog_options")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  memberships         StoreMembership[]
+  refreshTokens       RefreshToken[]
+  deviceModels        DeviceModel[]
+  primaryItems        PrimaryItem[]
+  secondaryItems      SecondaryItem[]
+  itemCompatibilities ItemCompatibility[]
+  customers           Customer[]
+  orders              Order[]
+  orderItems          OrderItem[]
+  stockLedger         StockLedger[]
+  auditLogs           AuditLog[]
+
+  @@map("stores")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  googleSub    String?  @unique @map("google_sub")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  memberships   StoreMembership[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model StoreMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  storeId   String   @map("store_id") @db.Uuid
+  role      Role     @default(VENDEDOR)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storeId])
+  @@index([storeId])
+  @@index([userId])
+  @@map("store_memberships")
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  storeId      String?   @map("store_id") @db.Uuid
+  familyId     String    @map("family_id")
+  tokenHash    String    @map("token_hash")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model DeviceModel {
+  id          String   @id @default(uuid()) @db.Uuid
+  storeId     String   @map("store_id") @db.Uuid
+  brand       String
+  modelName   String   @map("model_name")
+  releaseYear Int?     @map("release_year")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  store               Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  primaryItems        PrimaryItem[]
+  itemCompatibilities ItemCompatibility[]
+
+  @@index([storeId])
+  @@map("device_models")
+}
+
+model PrimaryItem {
+  id                 String            @id @default(uuid()) @db.Uuid
+  storeId            String            @map("store_id") @db.Uuid
+  modelId            String?           @map("model_id") @db.Uuid
+  title              String
+  skuCode            String            @map("sku_code")
+  isSerialized       Boolean           @default(true) @map("is_serialized")
+  stockQty           Int               @default(1) @map("stock_qty")
+  imei1              String?           @map("imei_1")
+  imei2              String?           @map("imei_2")
+  serialNumber       String?           @map("serial_number")
+  storageGb          String?           @map("storage_gb")
+  ramGb              String?           @map("ram_gb")
+  color              String?
+  condition          String?
+  batteryHealth      Int?              @map("battery_health")
+  batteryCycles      Int?              @map("battery_cycles")
+  originType         String?           @map("origin_type")
+  tradeInCustomerId  String?           @map("trade_in_customer_id") @db.Uuid
+  costPriceCents     Int               @default(0) @map("cost_price_cents")
+  salePriceCents     Int               @default(0) @map("sale_price_cents")
+  status             PrimaryItemStatus @default(DISPONIVEL)
+  checklistJson      Json?             @default("[]") @map("checklist_json")
+  customAttributes   Json?             @default("{}") @map("custom_attributes")
+  expiresAt          DateTime?         @map("expires_at")
+  notes              String?
+  version            Int               @default(1)
+  createdAt          DateTime          @default(now()) @map("created_at")
+
+  store           Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  model           DeviceModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  tradeInCustomer Customer?    @relation(fields: [tradeInCustomerId], references: [id], onDelete: SetNull)
+  orderItems      OrderItem[]
+
+  @@index([storeId, status])
+  @@index([storeId, imei1])
+  @@index([storeId, skuCode])
+  @@index([modelId])
+  @@index([tradeInCustomerId])
+  @@map("primary_items")
+}
+
+model SecondaryItem {
+  id               String    @id @default(uuid()) @db.Uuid
+  storeId          String    @map("store_id") @db.Uuid
+  sku              String
+  ean              String?
+  brand            String?
+  name             String
+  category         String
+  stockQty         Int       @default(0) @map("stock_qty")
+  minStockAlert    Int       @default(5) @map("min_stock_alert")
+  costPriceCents   Int       @default(0) @map("cost_price_cents")
+  salePriceCents   Int       @default(0) @map("sale_price_cents")
+  customAttributes Json?     @default("{}") @map("custom_attributes")
+  expiresAt        DateTime? @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  store               Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  compatibilities     ItemCompatibility[]
+  orderItems          OrderItem[]
+
+  @@unique([storeId, sku])
+  @@index([storeId, category])
+  @@map("secondary_items")
+}
+
+model ItemCompatibility {
+  id              String   @id @default(uuid()) @db.Uuid
+  storeId         String   @map("store_id") @db.Uuid
+  secondaryItemId String   @map("secondary_item_id") @db.Uuid
+  deviceModelId   String?  @map("device_model_id") @db.Uuid
+  compatibleTag   String   @map("compatible_tag")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  secondaryItem SecondaryItem @relation(fields: [secondaryItemId], references: [id], onDelete: Cascade)
+  deviceModel   DeviceModel?  @relation(fields: [deviceModelId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, secondaryItemId])
+  @@index([deviceModelId])
+  @@map("item_compatibilities")
+}
+
+model Customer {
+  id               String         @id @default(uuid()) @db.Uuid
+  storeId          String         @map("store_id") @db.Uuid
+  fullName         String         @map("full_name")
+  email            String?
+  status           CustomerStatus @default(ATIVO)
+  segment          String?        @default("Varejo")
+  tags             String[]       @default([])
+  phoneEncrypted   String?        @map("phone_encrypted")
+  phoneLast4       String?        @map("phone_last4")
+  phoneHmac        String?        @map("phone_hmac")
+  cpfEncrypted     String?        @map("cpf_encrypted")
+  cpfLast4         String?        @map("cpf_last4")
+  cpfHmac          String?        @map("cpf_hmac")
+  notesJson        Json?          @default("[]") @map("notes_json")
+  city             String?
+  preferredContact String?        @default("WhatsApp") @map("preferred_contact")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  tradeInItems PrimaryItem[]
+  orders       Order[]
+
+  @@index([storeId, status])
+  @@index([storeId, phoneHmac])
+  @@index([storeId, cpfHmac])
+  @@map("customers")
+}
+
+model Order {
+  id                    String    @id @default(uuid()) @db.Uuid
+  storeId               String    @map("store_id") @db.Uuid
+  orderCode             String    @map("order_code")
+  customerId            String    @map("customer_id") @db.Uuid
+  sellerId              String?   @map("seller_id") @db.Uuid
+  sellerName            String?   @map("seller_name")
+  paymentMethod         String    @map("payment_method")
+  warrantyDays          Int       @default(90) @map("warranty_days")
+  warrantyExpiresAt     DateTime? @map("warranty_expires_at")
+  warrantyTermsSnapshot Json?     @map("warranty_terms_snapshot")
+  publicWarrantyToken   String    @unique @default(uuid()) @map("public_warranty_token") @db.Uuid
+  idempotencyKey        String    @map("idempotency_key")
+  totalCents            Int       @default(0) @map("total_cents")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  orderItems OrderItem[]
+
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId, customerId])
+  @@index([publicWarrantyToken])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  storeId         String   @map("store_id") @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  primaryItemId   String?  @map("primary_item_id") @db.Uuid
+  secondaryItemId String?  @map("secondary_item_id") @db.Uuid
+  itemTitle       String   @map("item_title")
+  quantity        Int      @default(1)
+  unitPriceCents  Int      @default(0) @map("unit_price_cents")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  store         Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  primaryItem   PrimaryItem?   @relation(fields: [primaryItemId], references: [id], onDelete: SetNull)
+  secondaryItem SecondaryItem? @relation(fields: [secondaryItemId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, orderId])
+  @@index([primaryItemId])
+  @@index([secondaryItemId])
+  @@map("order_items")
+}
+
+model StockLedger {
+  id             String   @id @default(uuid()) @db.Uuid
+  storeId        String   @map("store_id") @db.Uuid
+  itemType       String   @map("item_type")
+  itemId         String   @map("item_id")
+  itemLabel      String   @map("item_label")
+  sku            String?
+  delta          Int
+  resultingStock Int?     @map("resulting_stock")
+  reason         String
+  actorUserId    String?  @map("actor_user_id")
+  actorName      String?  @map("actor_name")
+  note           String?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+  @@map("stock_ledger")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  storeId      String   @map("store_id") @db.Uuid
+  actorUserId  String?  @map("actor_user_id")
+  actorName    String?  @map("actor_name")
+  actorRole    String?  @map("actor_role")
+  action       String
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
+  targetLabel  String?  @map("target_label")
+  detail       String?
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  metadataJson Json?    @default("{}") @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+  @@map("audit_logs")
+}
