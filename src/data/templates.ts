@@ -53,6 +53,7 @@ export const STORE_SEGMENT_SUGGESTIONS: string[] = [
   'Oficina Mecânica',
   'Cafeteria & Padaria',
   'Ótica & Joalheria',
+  'Outros / Personalizado',
 ];
 
 /**
