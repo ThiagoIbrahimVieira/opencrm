@@ -69,6 +69,23 @@ test('AuthService registerStore provisions new admin session and storeUnit', asy
   assert.equal(auth.isAdmin(), true);
 });
 
+test('AuthService registerStore supports custom/other segment and provisions admin session', async () => {
+  const auth = new AuthService(null);
+  const user = await auth.registerStore({
+    adminName: 'Mariana Costa',
+    adminEmail: 'mariana@costajoias.com.br',
+    adminPassword: 'supersecret123',
+    storeName: 'Costa Joias',
+    segment: 'other',
+  });
+
+  assert.equal(user.role, 'ADMIN');
+  assert.equal(user.name, 'Mariana Costa');
+  assert.equal(user.storeUnit, 'Costa Joias');
+  assert.equal(auth.getCurrentUser()?.email, 'mariana@costajoias.com.br');
+  assert.equal(auth.isAdmin(), true);
+});
+
 test('AuthService registerSeller provisions seller session awaiting store access', async () => {
   const auth = new AuthService(null);
   const seller = await auth.registerSeller({

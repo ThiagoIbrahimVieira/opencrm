@@ -39,6 +39,8 @@ interface StoreWizardModalProps {
   open: boolean;
   onClose: () => void;
   onCreateStore: (template: StoreTemplate) => void;
+  initialStoreName?: string;
+  initialStartMode?: 'preset' | 'scratch';
 }
 
 type StartMode = 'preset' | 'scratch';
@@ -68,18 +70,20 @@ export function StoreWizardModal({
   open,
   onClose,
   onCreateStore,
+  initialStoreName,
+  initialStartMode,
 }: StoreWizardModalProps) {
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   // Step 1: Identity & Start Mode
-  const [storeName, setStoreName] = React.useState('');
+  const [storeName, setStoreName] = React.useState(initialStoreName ?? '');
   const [segment, setSegment] = React.useState(INITIAL_SCRATCH_SEGMENT);
   const [customSegment, setCustomSegment] = React.useState('');
   const [segmentOptions, setSegmentOptions] = React.useState<string[]>(
     STORE_SEGMENT_SUGGESTIONS
   );
-  const [startMode, setStartMode] = React.useState<StartMode>('scratch');
+  const [startMode, setStartMode] = React.useState<StartMode>(initialStartMode ?? 'scratch');
   const [scratchVariant, setScratchVariant] = React.useState<ScratchVariant>('preset');
   const [selectedPresetId, setSelectedPresetId] = React.useState<string>(
     GENERIC_RETAIL_PRESET_ID
@@ -139,8 +143,8 @@ export function StoreWizardModal({
       const preset = getSegmentScratchPreset(INITIAL_SCRATCH_SEGMENT);
       setStep(1);
       setErrorMsg(null);
-      setStoreName('');
-      setStartMode('scratch');
+      setStoreName(initialStoreName ?? '');
+      setStartMode(initialStartMode ?? 'scratch');
       setScratchVariant('preset');
       setSelectedPresetId(GENERIC_RETAIL_PRESET_ID);
       setSegment(INITIAL_SCRATCH_SEGMENT);
@@ -160,7 +164,7 @@ export function StoreWizardModal({
       setNewFieldOptionsRaw('');
       setNewFieldRequired(false);
     }
-  }, [open]);
+  }, [open, initialStoreName, initialStartMode]);
 
   if (!open) return null;
 

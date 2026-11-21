@@ -130,6 +130,12 @@ function AppInner() {
   const [addModalOpen, setAddModalOpen] = React.useState(false);
   const [addModalMode, setAddModalMode] = React.useState<InventoryTab>('smartphones');
   const [storeWizardOpen, setStoreWizardOpen] = React.useState(false);
+  const [wizardInitialStoreName, setWizardInitialStoreName] = React.useState<string | undefined>(
+    undefined
+  );
+  const [wizardInitialStartMode, setWizardInitialStartMode] = React.useState<
+    'preset' | 'scratch' | undefined
+  >(undefined);
 
   const [commandSearchOpen, setCommandSearchOpen] = React.useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
@@ -320,6 +326,9 @@ function AppInner() {
     setPublicWarrantyToken(null);
     setSelectedSmartphoneDetailId(null);
     setActiveSection('dashboard');
+    setStoreWizardOpen(false);
+    setWizardInitialStoreName(undefined);
+    setWizardInitialStartMode(undefined);
     authService.logout();
   }, []);
 
@@ -426,6 +435,8 @@ function AppInner() {
       setInventoryTab('smartphones');
       setActiveSection('dashboard');
       setStoreWizardOpen(false);
+      setWizardInitialStoreName(undefined);
+      setWizardInitialStartMode(undefined);
       pushToast(
         `Loja "${created.template.storeName}" criada no Open CRM`,
         `Segmento ${created.template.segment} pronto para operação.`
@@ -444,6 +455,31 @@ function AppInner() {
         segment: data.segment,
       });
 
+      const isOther = data.segment === 'other' || data.segment === 'Outros / Personalizado';
+
+      if (isOther) {
+        setSelectedCustomerId(null);
+        setSelectedSmartphoneDetailId(null);
+        setWarrantyPreview(null);
+        setPublicWarrantyToken(null);
+        setPreselectedCustomerId(null);
+        setPreselectedSmartphoneId(null);
+        setPreselectedAccessoryId(null);
+        setOnlyLowStock(false);
+        setInventoryTab('smartphones');
+        setActiveSection('dashboard');
+
+        setWizardInitialStoreName(data.storeName);
+        setWizardInitialStartMode('scratch');
+        setStoreWizardOpen(true);
+
+        pushToast(
+          `Conta criada com sucesso!`,
+          `Configure os módulos e campos da sua nova loja no assistente.`
+        );
+        return;
+      }
+
       const template = buildDefaultTemplateForStore(data.storeName, data.segment);
       const created = crmService.createStoreFromTemplate(template, user.name);
 
@@ -458,6 +494,8 @@ function AppInner() {
       setInventoryTab('smartphones');
       setActiveSection('dashboard');
       setStoreWizardOpen(false);
+      setWizardInitialStoreName(undefined);
+      setWizardInitialStartMode(undefined);
 
       pushToast(
         `Loja "${created.template.storeName}" criada no Open CRM`,
@@ -501,15 +539,24 @@ function AppInner() {
         <LoginView
           onLogin={handleLogin}
           onDemoLogin={handleDemoLogin}
-          onOpenCreateStore={() => setStoreWizardOpen(true)}
+          onOpenCreateStore={(storeName) => {
+            if (storeName) setWizardInitialStoreName(storeName);
+            setStoreWizardOpen(true);
+          }}
           onRegisterStore={handleRegisterStore}
           onRegisterSeller={handleRegisterSeller}
           onGoogleLogin={handleGoogleLogin}
         />
         <StoreWizardModal
           open={storeWizardOpen}
-          onClose={() => setStoreWizardOpen(false)}
+          onClose={() => {
+            setStoreWizardOpen(false);
+            setWizardInitialStoreName(undefined);
+            setWizardInitialStartMode(undefined);
+          }}
           onCreateStore={handleCreateStore}
+          initialStoreName={wizardInitialStoreName}
+          initialStartMode={wizardInitialStartMode}
         />
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       </>
@@ -1032,8 +1079,14 @@ function AppInner() {
 
       <StoreWizardModal
         open={storeWizardOpen}
-        onClose={() => setStoreWizardOpen(false)}
+        onClose={() => {
+          setStoreWizardOpen(false);
+          setWizardInitialStoreName(undefined);
+          setWizardInitialStartMode(undefined);
+        }}
         onCreateStore={handleCreateStore}
+        initialStoreName={wizardInitialStoreName}
+        initialStartMode={wizardInitialStartMode}
       />
 
       <WarrantyCertificateModal

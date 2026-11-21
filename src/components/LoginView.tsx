@@ -32,7 +32,7 @@ export interface RegisterSellerFormData {
 interface LoginViewProps {
   onLogin: (credentials: LoginCredentials) => void | Promise<void>;
   onDemoLogin: (role: UserRole) => void;
-  onOpenCreateStore: () => void;
+  onOpenCreateStore: (initialStoreName?: string) => void;
   onRegisterStore?: (data: RegisterStoreFormData) => void | Promise<void>;
   onRegisterSeller?: (data: RegisterSellerFormData) => void | Promise<void>;
   onGoogleLogin?: (idToken: string) => void | Promise<void>;
@@ -191,7 +191,7 @@ export function LoginView({
             segment: regSegment,
           });
         } else {
-          onOpenCreateStore();
+          onOpenCreateStore(regStoreName.trim());
         }
       } catch (err) {
         setErrorMsg(formatFriendlyError(err));
@@ -610,7 +610,7 @@ export function LoginView({
                   {regRole === 'admin' && (
                     <button
                       type="button"
-                      onClick={onOpenCreateStore}
+                      onClick={() => onOpenCreateStore(regStoreName.trim())}
                       className="text-[11px] text-[#8C887E] hover:text-[#4A4842] hover:underline cursor-pointer"
                     >
                       Ou personalizar template avançado no assistente
