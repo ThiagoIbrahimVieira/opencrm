@@ -1,5 +1,5 @@
 import React, { useSyncExternalStore } from 'react';
-import { Menu, Search } from 'lucide-react';
+import { AlertCircle, Menu, Search } from 'lucide-react';
 import { authService } from './services/authService';
 import { crmService } from './services/crmService';
 import { LoginCredentials, UserRole } from './types/auth';
@@ -19,7 +19,8 @@ import {
   UpdateCustomerInput,
 } from './types/crm';
 import { StoreTemplate } from './types/template';
-import { LoginView } from './components/LoginView';
+import { buildDefaultTemplateForStore } from './data/templates';
+import { LoginView, RegisterStoreFormData } from './components/LoginView';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { InventoryView } from './components/InventoryView';
@@ -32,12 +33,80 @@ import { StoreWizardModal } from './components/StoreWizardModal';
 import { WarrantyCertificateModal } from './components/WarrantyCertificateModal';
 import { PublicWarrantyModal } from './components/PublicWarrantyModal';
 import {
+  AuraButton,
   CommandSearchModal,
   ToastMessage,
   ToastViewport,
 } from './components/ui/AuraPrimitives';
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('OpenCRM Global Catch:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#F4F2EC] flex flex-col items-center justify-center p-6 text-[#1F1E1B]">
+          <div className="max-w-md w-full bg-white border border-[#E5E2D9] rounded-2xl p-7 shadow-sm text-center space-y-4">
+            <div className="h-12 w-12 rounded-full bg-[#9B3B2B]/10 text-[#9B3B2B] flex items-center justify-center mx-auto">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <h2 className="font-serif text-2xl font-medium">Ops, algo não saiu como esperado</h2>
+            <p className="text-xs text-[#6E6B63] leading-relaxed">
+              Ocorreu uma instabilidade inesperada na interface. Seus dados continuam intactos e preservados.
+            </p>
+            {this.state.error?.message && (
+              <pre className="text-[11px] text-[#9B3B2B] bg-[#F8E5E2] p-3 rounded-xl overflow-x-auto text-left font-mono">
+                {this.state.error.message}
+              </pre>
+            )}
+            <AuraButton
+              variant="primary"
+              size="md"
+              className="w-full"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                window.location.reload();
+              }}
+            >
+              Recarregar aplicação
+            </AuraButton>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
+  );
+}
+
+function AppInner() {
   const auth = useSyncExternalStore(
     (cb) => authService.subscribe(cb),
     () => authService.getSnapshot()
@@ -70,6 +139,7 @@ export default function App() {
   } | null>(null);
 
   const [publicWarrantyToken, setPublicWarrantyToken] = React.useState<string | null>(null);
+  const [apiWarrantyData, setApiWarrantyData] = React.useState<PublicWarrantyViewData | null>(null);
 
   // Pre-selections when jumping to Checkout from Device Drawer or Customer Profile
   const [preselectedCustomerId, setPreselectedCustomerId] = React.useState<string | null>(
@@ -135,9 +205,30 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [currentUser]);
 
+  // Carrega dados da garantia pública via API quando houver token na URL
+  React.useEffect(() => {
+    if (publicWarrantyToken) {
+      fetch(`/api/public/warranty/${publicWarrantyToken}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data) setApiWarrantyData(data);
+        })
+        .catch(() => {});
+    } else {
+      setApiWarrantyData(null);
+    }
+  }, [publicWarrantyToken]);
+
+  // Se o usuário estiver autenticado mas ainda não possuir lojas, abre o Wizard de criação
+  React.useEffect(() => {
+    if (currentUser && (!store?.stores || store.stores.length === 0)) {
+      setStoreWizardOpen(true);
+    }
+  }, [currentUser, store?.stores]);
+
   const handleLogin = React.useCallback(
-    (credentials: LoginCredentials) => {
-      const user = authService.login(credentials);
+    async (credentials: LoginCredentials) => {
+      const user = await authService.loginWithBackend(credentials);
       crmService.logAuditEvent({
         actor: user.name,
         actorRole: user.role,
@@ -318,6 +409,39 @@ export default function App() {
     [pushToast]
   );
 
+  const handleRegisterStore = React.useCallback(
+    async (data: RegisterStoreFormData) => {
+      const user = await authService.registerStore({
+        adminName: data.adminName,
+        adminEmail: data.adminEmail,
+        adminPassword: data.adminPassword,
+        storeName: data.storeName,
+        segment: data.segment,
+      });
+
+      const template = buildDefaultTemplateForStore(data.storeName, data.segment);
+      const created = crmService.createStoreFromTemplate(template, user.name);
+
+      setSelectedCustomerId(null);
+      setSelectedSmartphoneDetailId(null);
+      setWarrantyPreview(null);
+      setPublicWarrantyToken(null);
+      setPreselectedCustomerId(null);
+      setPreselectedSmartphoneId(null);
+      setPreselectedAccessoryId(null);
+      setOnlyLowStock(false);
+      setInventoryTab('smartphones');
+      setActiveSection('dashboard');
+      setStoreWizardOpen(false);
+
+      pushToast(
+        `Loja "${created.template.storeName}" criada no Open CRM`,
+        `Bem-vindo(a), ${user.name.split(' ')[0]}! Você é o Administrador deste workspace.`
+      );
+    },
+    [pushToast]
+  );
+
   if (!currentUser) {
     return (
       <>
@@ -325,6 +449,7 @@ export default function App() {
           onLogin={handleLogin}
           onDemoLogin={handleDemoLogin}
           onOpenCreateStore={() => setStoreWizardOpen(true)}
+          onRegisterStore={handleRegisterStore}
           onGoogleLogin={handleGoogleLogin}
         />
         <StoreWizardModal
@@ -337,30 +462,25 @@ export default function App() {
     );
   }
 
+  const activeTemplate = store?.activeTemplate;
+
+  if (!activeTemplate || !store) {
+    return (
+      <div className="min-h-screen bg-[#F4F2EC] flex flex-col items-center justify-center p-6 text-[#1F1E1B]">
+        <div className="h-10 w-10 rounded-full border-2 border-[#4F5A47] border-t-transparent animate-spin mb-3" />
+        <p className="font-serif text-sm text-[#4F5A47]">Carregando seu workspace...</p>
+      </div>
+    );
+  }
+
   const summary = crmService.getDashboardSummary();
   const selectedSmartphoneDetail = selectedSmartphoneDetailId
     ? (store.smartphones.find((s) => s.id === selectedSmartphoneDetailId) ?? null)
     : null;
-  const [apiWarrantyData, setApiWarrantyData] = React.useState<PublicWarrantyViewData | null>(null);
-
-  React.useEffect(() => {
-    if (publicWarrantyToken) {
-      fetch(`/api/public/warranty/${publicWarrantyToken}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          if (data) setApiWarrantyData(data);
-        })
-        .catch(() => {});
-    } else {
-      setApiWarrantyData(null);
-    }
-  }, [publicWarrantyToken]);
 
   const publicWarrantyData =
     apiWarrantyData ||
     (publicWarrantyToken ? crmService.getPublicWarrantyByToken(publicWarrantyToken) : null);
-
-  const activeTemplate = store.activeTemplate;
 
   const handleCreateSmartphone = (input: CreateSmartphoneInput) => {
     const created = crmService.createSmartphone({

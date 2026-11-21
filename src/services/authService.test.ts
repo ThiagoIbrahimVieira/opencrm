@@ -51,3 +51,20 @@ test('AuthService enforces Admin-only team provisioning and blocks deactivated u
     /desativado/i
   );
 });
+
+test('AuthService registerStore provisions new admin session and storeUnit', async () => {
+  const auth = new AuthService(null);
+  const user = await auth.registerStore({
+    adminName: 'Carlos Silveira',
+    adminEmail: 'carlos@padariasilveira.com.br',
+    adminPassword: 'supersecret123',
+    storeName: 'Padaria Silveira',
+    segment: 'Cafeteria & Padaria',
+  });
+
+  assert.equal(user.role, 'ADMIN');
+  assert.equal(user.name, 'Carlos Silveira');
+  assert.equal(user.storeUnit, 'Padaria Silveira');
+  assert.equal(auth.getCurrentUser()?.email, 'carlos@padariasilveira.com.br');
+  assert.equal(auth.isAdmin(), true);
+});

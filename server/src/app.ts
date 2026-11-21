@@ -26,13 +26,14 @@ export function buildApp() {
     contentSecurityPolicy: env.NODE_ENV === 'production',
   });
 
-  const allowedOrigins = [
-    ...env.CORS_ORIGIN.split(',').map((origin) => origin.trim()),
+  const configuredOrigins = env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
+  const defaultOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-  ].filter(Boolean);
+  ];
+  const allowedOrigins = Array.from(new Set([...configuredOrigins, ...defaultOrigins]));
 
   // CORS restrito com suporte a cookies credentials
   app.register(cors, {
@@ -86,7 +87,9 @@ export function buildApp() {
   app.register(publicRoutes, { prefix: '/api/public' });
 
   // Health check
-  app.get('/api/health', async () => ({ status: 'ok', service: 'opencrm-api' }));
+  app.get('/api/health', async (_request, reply) => {
+    return reply.status(200).send({ status: 'ok', service: 'opencrm-api' });
+  });
 
   return app;
 }

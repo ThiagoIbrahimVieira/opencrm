@@ -1,6 +1,15 @@
 import { AuthUser, LoginCredentials, TeamMember, UserRole } from '../types/auth';
 import { apiRequest } from './apiClient';
 
+export interface RegisterStoreInput {
+  adminName: string;
+  adminEmail: string;
+  adminPassword?: string;
+  storeName: string;
+  segment: string;
+  templateConfig?: any;
+}
+
 export interface AuthStoreState {
   currentUser: AuthUser | null;
   teamMembers: TeamMember[];
@@ -102,7 +111,7 @@ export class AuthService {
     );
 
     if (!member) {
-      throw new Error('Credenciais não reconhecidas na equipe AuraCell.');
+      throw new Error('Credenciais não reconhecidas. Verifique e-mail e senha ou crie uma conta gratuita.');
     }
 
     if (!member.active) {
@@ -133,6 +142,162 @@ export class AuthService {
     }
 
     return sessionUser;
+  }
+
+  /**
+   * Authenticates against local team or the backend /api/auth/login route.
+   */
+  async loginWithBackend(credentials: LoginCredentials): Promise<AuthUser> {
+    const email = credentials.email.trim().toLowerCase();
+    const password = credentials.password.trim();
+
+    if (!email || !password) {
+      throw new Error('Informe e-mail e senha para entrar.');
+    }
+
+    // Se existe na equipe local conhecida (ex: demo accounts)
+    const localMember = this.state.teamMembers.find((m) => m.email.toLowerCase() === email);
+    if (localMember) {
+      return this.login(credentials);
+    }
+
+    // Tenta autenticar na API
+    if (typeof window !== 'undefined') {
+      try {
+        const data = await apiRequest('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (data?.user) {
+          const sessionUser: AuthUser = {
+            id: data.user.id,
+            name: data.user.name,
+            email: data.user.email,
+            role: data.user.role || 'ADMIN',
+            initials: buildInitials(data.user.name),
+            storeUnit: data.store?.name || 'Workspace',
+          };
+
+          const newMember: TeamMember = {
+            id: sessionUser.id,
+            name: sessionUser.name,
+            email: sessionUser.email,
+            role: sessionUser.role,
+            initials: sessionUser.initials,
+            storeUnit: sessionUser.storeUnit,
+            active: true,
+            createdAt: new Date().toISOString().split('T')[0],
+          };
+
+          this.state = {
+            ...this.state,
+            currentUser: sessionUser,
+            teamMembers: [...this.state.teamMembers.filter((m) => m.email !== email), newMember],
+          };
+          this.notify();
+
+          return sessionUser;
+        }
+      } catch (err: any) {
+        throw new Error(err.message || 'Credenciais não reconhecidas. Verifique e-mail e senha.');
+      }
+    }
+
+    throw new Error('Credenciais não reconhecidas. Verifique e-mail e senha ou crie uma conta gratuita.');
+  }
+
+  /**
+   * Registers a brand new store and its initial administrator account.
+   */
+  async registerStore(input: RegisterStoreInput): Promise<AuthUser> {
+    const adminName = input.adminName.trim();
+    const adminEmail = input.adminEmail.trim().toLowerCase();
+    const storeName = input.storeName.trim();
+    const segment = input.segment.trim() || 'Varejo Geral';
+    const adminPassword = input.adminPassword?.trim() || 'password123';
+
+    if (!adminName || !adminEmail || !storeName) {
+      throw new Error('Informe seu nome, e-mail e o nome da loja.');
+    }
+
+    if (!adminEmail.includes('@')) {
+      throw new Error('Informe um endereço de e-mail corporativo ou pessoal válido.');
+    }
+
+    if (adminPassword.length < 6) {
+      throw new Error('A senha deve conter no mínimo 6 caracteres.');
+    }
+
+    let user: AuthUser;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await apiRequest('/api/auth/register-store', {
+          method: 'POST',
+          body: JSON.stringify({
+            storeName,
+            segment,
+            templateConfig: input.templateConfig || {},
+            adminName,
+            adminEmail,
+            adminPassword,
+          }),
+        });
+
+        if (res?.user) {
+          user = {
+            id: res.user.id,
+            name: res.user.name,
+            email: res.user.email,
+            role: 'ADMIN',
+            initials: buildInitials(res.user.name),
+            storeUnit: res.store?.name || storeName,
+          };
+        } else {
+          throw new Error('Resposta inesperada do servidor.');
+        }
+      } catch (err: any) {
+        console.warn('Falha na API de registro, utilizando fallback de sessão local:', err);
+        user = {
+          id: `usr-admin-${Date.now()}`,
+          name: adminName,
+          email: adminEmail,
+          role: 'ADMIN',
+          initials: buildInitials(adminName),
+          storeUnit: storeName,
+        };
+      }
+    } else {
+      user = {
+        id: `usr-admin-${Date.now()}`,
+        name: adminName,
+        email: adminEmail,
+        role: 'ADMIN',
+        initials: buildInitials(adminName),
+        storeUnit: storeName,
+      };
+    }
+
+    const member: TeamMember = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: 'ADMIN',
+      initials: user.initials,
+      storeUnit: user.storeUnit,
+      active: true,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    this.state = {
+      ...this.state,
+      currentUser: user,
+      teamMembers: [...this.state.teamMembers.filter((m) => m.email !== user.email), member],
+    };
+    this.notify();
+
+    return user;
   }
 
   /**

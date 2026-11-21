@@ -882,6 +882,50 @@ export function getBlankScratchPreset(): SegmentScratchPreset {
   };
 }
 
+/**
+ * Builds a ready-to-use StoreTemplate for self-registration or instant store creation.
+ */
+export function buildDefaultTemplateForStore(storeName: string, segment: string): StoreTemplate {
+  const cleanName = storeName.trim() || 'Minha Loja';
+  const cleanSegment = segment.trim() || 'Varejo Geral';
+  const preset = getSegmentScratchPreset(cleanSegment);
+  const slug = cleanName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'loja';
+
+  return {
+    id: `store-${slug}-${Date.now().toString().slice(-4)}`,
+    storeName: cleanName,
+    segment: cleanSegment,
+    description: `Workspace configurado no Open CRM para ${cleanName} (${cleanSegment}).`,
+    labels: { ...preset.labels },
+    features: { ...preset.features },
+    primaryFields: [...preset.primaryFields],
+    secondaryFields: preset.features.hasExpirationDate
+      ? [
+          {
+            id: `cf-sec-exp-${Date.now()}`,
+            key: 'validade_lote',
+            label: 'Validade do Lote',
+            type: 'date',
+            required: false,
+            validator: 'none',
+          },
+        ]
+      : [],
+    defaultChecklist: preset.features.hasEntryChecklist
+      ? [
+          'Embalagem e integridade conferidas',
+          'Etiqueta e identificação aplicadas',
+          'Qualidade aprovada no recebimento',
+        ]
+      : [],
+  };
+}
+
 // --- Isolated Seed Datasets per Store ---
 
 const SABOR_BRASA_MODELS: DeviceModel[] = [
