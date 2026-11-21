@@ -1,13 +1,17 @@
-# OpenCRM — Plataforma SaaS Multi-Tenant Metadata-Driven, Vercel Serverless, Supabase PostgreSQL 17 RLS & AppSec LGPD
+# ⚡ OpenCRM — Plataforma SaaS Multi-Tenant Metadata-Driven
 
-[![Vercel Production](https://img.shields.io/badge/Vercel-Live%20Production-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://opencrm-ashy.vercel.app)
-[![Supabase PostgreSQL 17](https://img.shields.io/badge/Supabase-PostgreSQL%2017%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![Fastify Serverless](https://img.shields.io/badge/Fastify-Serverless%20Function-000000?style=for-the-badge&logo=fastify&logoColor=white)](https://fastify.dev)
-[![React 19](https://img.shields.io/badge/React%2019-TypeScript-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![LGPD Compliant](https://img.shields.io/badge/LGPD-AES--256--GCM%20%7C%20HMAC--SHA256-4F5A47?style=for-the-badge)](https://github.com/ThiagoIbrahimVieira/opencrm)
-[![Automated Tests](https://img.shields.io/badge/Tests-57%2F57%20Passing-brightgreen?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/ThiagoIbrahimVieira/opencrm)
+<p align="center">
+  <img src="https://img.shields.io/badge/Vercel-Live%20Production-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL%2017%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Fastify-Serverless%20Function-000000?style=for-the-badge&logo=fastify&logoColor=white" alt="Fastify" />
+  <img src="https://img.shields.io/badge/React%2019-TypeScript-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/LGPD-AES--256--GCM%20%7C%20HMAC--SHA256-4F5A47?style=for-the-badge" alt="LGPD" />
+  <img src="https://img.shields.io/badge/Tests-57%20Passed-brightgreen?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
+</p>
 
-> **Arquitetura Full-Stack Corporativa:** Frontend React 19 + TypeScript + Tailwind CSS (*Warm Editorial Boutique Design System*) integrado a Backend Fastify encapsulado em **Vercel Serverless Function** (`api/index.ts`), banco de dados **PostgreSQL 17 gerenciado no Supabase** com **Row-Level Security (RLS) mandatória**, blindagem de dados sensíveis (**LGPD**) via Blind Index HMAC-SHA256 e criptografia AES-256-GCM, transações **ACID** com proteção contra race conditions e motor dinâmico de templates metadata-driven.
+<p align="center">
+  <strong>Plataforma SaaS Multi-Tenant orientada a metadados (Metadata-Driven), construída em React 19, Vercel Serverless (Fastify em Node.js 22), Supabase PostgreSQL 17 com RLS nativa obrigatória, blindagem de dados sensíveis sob a LGPD (Blind Index + AES-256-GCM) e motor dinâmico de lojas.</strong>
+</p>
 
 ---
 
@@ -19,6 +23,27 @@
 | **Backend API (Healthcheck)** | Rota Leve Zero-Leak (`GET /api/health`) | **[https://opencrm-ashy.vercel.app/api/health](https://opencrm-ashy.vercel.app/api/health)** |
 | **Banco de Dados Relacional** | Supabase Cloud (PostgreSQL 17 com RLS real) | `strzjawgrmdefpjioqcj.supabase.co` |
 | **Repositório Oficial** | GitHub Oficial (Branches `main` e `dev`) | **[https://github.com/ThiagoIbrahimVieira/opencrm](https://github.com/ThiagoIbrahimVieira/opencrm)** |
+
+---
+
+## 🎯 O que é o Projeto?
+
+O **OpenCRM** é uma plataforma corporativa completa de CRM, controle de estoque e ponto de venda (PDV) que soluciona o clássico problema dos ERPs tradicionais: **a rigidez de esquemas**. 
+
+Em vez de forçar lanchonetes ou lojas de roupas a conviverem com campos de IMEI e números de série, ou empurrar o negócio para planilhas e soluções no-code sem segurança, o OpenCRM utiliza um **motor orientado a metadados (*Metadata-Driven*)** sobre um banco relacional **PostgreSQL 17**:
+
+```
+Navegador do Usuário / Balcão ───► Vercel Edge Network & Serverless Function (Fastify)
+                                                   │
+                       ┌───────────────────────────┴───────────────────────────┐
+                       ▼                                                       ▼
+            [Multi-Tenant RLS 🛡️]                                    [Motor Metadata-Driven ⚡]
+   Supabase PostgreSQL 17 Cloud:                                    Cada loja define seus campos:
+   - FORCE ROW LEVEL SECURITY                                       - Celulares (IMEI & Garantia QR)
+   - Role restrita opencrm_app                                      - Lanchonetes (Lotes & Validade)
+   - Criptografia AES-256-GCM                                       - Moda (Grade de Tamanho & Cores)
+   - Blind Index HMAC-SHA256                                        - Outros / Personalizado do Zero!
+```
 
 ---
 
@@ -38,99 +63,102 @@ Abaixo estão as evidências reais de funcionamento capturadas no ambiente de pr
 
 ---
 
-## 📚 Índice de Documentação Modular
+## ✨ Recursos Principais
 
-Toda a documentação técnica foi estruturada de forma modular para permitir consulta aprofundada por tópico:
-
-1. [**1. Visão Geral e Problema Resolvido**](#1-visão-geral-e-problema-resolvido) — [Acessar Documento Completo (`docs/01-visao-geral.md`)](docs/01-visao-geral.md)
-2. [**2. Topologia Arquitetural 100% Vercel Serverless Function + Supabase RLS**](#2-topologia-arquitetural-100-vercel-serverless-function--supabase-rls) — [Acessar Documento Completo (`docs/02-topologia-arquitetural.md`)](docs/02-topologia-arquitetural.md)
-3. [**3. Segurança da Informação & Engenharia LGPD By Design**](#3-segurança-da-informação--engenharia-lgpd-by-design) — [Acessar Documento Completo (`docs/03-seguranca-e-lgpd.md`)](docs/03-seguranca-e-lgpd.md)
-4. [**4. Diagrama Entidade-Relacionamento (DER)**](#4-diagrama-entidade-relacionamento-der) — [Acessar Documento Completo (`docs/04-diagrama-entidade-relacionamento.md`)](docs/04-diagrama-entidade-relacionamento.md)
-5. [**5. Stack Tecnológica Completa**](#5-stack-tecnológica-completa) — [Acessar Documento Completo (`docs/05-stack-tecnologica.md`)](docs/05-stack-tecnologica.md)
-6. [**6. Como Executar o Projeto Localmente**](#6-como-executar-o-projeto-localmente) — [Acessar Documento Completo (`docs/06-execucao-local.md`)](docs/06-execucao-local.md)
-7. [**7. Execução da Suíte de Testes e Validação de Tipagem**](#7-execução-da-suíte-de-testes-e-validação-de-tipagem) — [Acessar Documento Completo (`docs/07-testes-e-qualidade.md`)](docs/07-testes-e-qualidade.md)
-8. [**8. Pipeline de CI/CD (GitHub Actions)**](#8-pipeline-de-ci-cd-github-actions) — [Acessar Documento Completo (`docs/08-pipeline-ci-cd.md`)](docs/08-pipeline-ci-cd.md)
-9. [**9. Licença**](#9-licença) — [Acessar Documento Completo (`docs/09-licenca.md`)](docs/09-licenca.md)
-
----
-
-## 1. Visão Geral e Problema Resolvido
-> 📄 **Documentação Detalhada:** Leia a análise de concorrência, dores de sistemas engessados e a fundação da solução em [`docs/01-visao-geral.md`](docs/01-visao-geral.md).
-
-O **OpenCRM** supera a dicotomia entre ERPs legados engessados e soluções No-Code frágeis unindo **Multi-Tenancy com Row-Level Security no PostgreSQL 17**, um **Motor de Templates Dinâmico (`JSONB` + Zod)** para qualquer segmento (celulares, alimentação, moda ou serviços), conformidade obrigatória com a **LGPD** e transações **ACID anti-concorrência** no PDV.
+- 🏢 **Multi-Tenancy com RLS Nativa (PostgreSQL 17):** Isolamento forçado em nível de banco via role `opencrm_app` e `FORCE ROW LEVEL SECURITY`. Impossível um tenant acessar dados de outro, mesmo sob injeção de SQL.
+- 🧬 **Motor de Templates Metadata-Driven (`JSONB` + Zod):** Criação de novas lojas com campos personalizados em tempo de execução sem migrações de DDL, acelerado por índices `GIN`.
+- 🔒 **AppSec & LGPD By Design:**
+  - **Blind Index HMAC-SHA256:** Busca instantânea $O(1)$ por CPF e deduplicação sem armazenar texto plano e sem descriptografar a tabela inteira.
+  - **AES-256-GCM:** Criptografia simétrica com IV aleatório de 12 bytes e Auth Tag de 16 bytes para CPFs e telefones.
+  - **Trilha Imutável de Auditoria (Art. 18):** Logs perpétuos de revelação de dados sensíveis com IP real, ator, cargo e timestamp.
+- ⚡ **Checkout ACID & Anti-Concorrência:** Baixa atômica de estoque com verificação condicional em única transação e suporte a chave de idempotência (`Idempotency-Key`).
+- 📱 **Geração de Termo com QR Code & WhatsApp:** Comprovantes e certificados de garantia com QR Code vetorial SVG e link direto para WhatsApp com mensagem pré-formatada.
+- 🎨 **Warm Editorial Boutique UI:** Interface autoral em React 19 e Tailwind CSS v4, com paleta neutra refinada (`#F4F2EC`, `#4F5A47`), tipografia humanista e microinterações fluidas via Motion.
+- 🔑 **Autenticação Robusta:** Suporte a Google OAuth 2.0 federado e fluxo tradicional com Argon2id, cookies `HttpOnly`, `SameSite=Lax`, `Secure` e rotação RFC 6819 de refresh tokens.
 
 ---
 
-## 2. Topologia Arquitetural 100% Vercel Serverless Function + Supabase RLS
-> 📄 **Documentação Detalhada:** Consulte os diagramas completos Mermaid e ASCII, barreira assíncrona serverless e pooling em [`docs/02-topologia-arquitetural.md`](docs/02-topologia-arquitetural.md).
+## ⚡ Guia Rápido de Instalação (3 Passos)
 
-Arquitetura unificada em **Vercel Edge Network & Serverless Platform**, roteando requisições estáticas para Edge CDN e chamadas `/api/:path*` para **Fastify em Node.js 22** (`api/index.ts`). A persistência conecta-se via **Supabase Transaction Pooler (porta 6543 / PgBouncer)** com RLS forçada (`FORCE ROW LEVEL SECURITY`) e role de banco não-privilegiada `opencrm_app`.
+```bash
+# 1. Clone o repositório e instale as dependências
+git clone https://github.com/ThiagoIbrahimVieira/opencrm.git
+cd opencrm && npm install --legacy-peer-deps
+cd server && npm install --legacy-peer-deps && cd ..
 
----
+# 2. Configure o banco e execute as migrações com seed
+cd server
+cp .env.example .env
+npm run db:deploy && npm run db:seed
+cd ..
 
-## 3. Segurança da Informação & Engenharia LGPD By Design
-> 📄 **Documentação Detalhada:** Veja as fórmulas matemáticas do Blind Index, vetores AES-256-GCM e trilha de auditoria em [`docs/03-seguranca-e-lgpd.md`](docs/03-seguranca-e-lgpd.md).
+# 3. Inicie os servidores locais
+cd server && npm run dev    # Terminal 1: Backend Fastify (porta 3333)
+npm run dev                 # Terminal 2: Frontend Vite (porta 3000)
+```
 
-Conformidade nativa com a **Lei nº 13.709/2018 (LGPD)**:
-* **Blind Index HMAC-SHA256:** Busca instantânea e deduplicação de CPFs em tempo $O(1)$ sem expor dados e sem descriptografar tabelas.
-* **Criptografia Simétrica AES-256-GCM:** Cifragem com IV aleatório de 12 bytes e Auth Tag de 16 bytes para CPFs e telefones.
-* **Trilha Imutável de Auditoria (Art. 18):** Registro perpétuo em `audit_logs` de qualquer revelação de PII (com IP real, ator, cargo e timestamp).
-* **Proteção de Sessão:** Cookies `HttpOnly`, `SameSite=Lax`, `Secure` e rotação RFC 6819 de refresh tokens.
-
----
-
-## 4. Diagrama Entidade-Relacionamento (DER)
-> 📄 **Documentação Detalhada:** Inspecione o diagrama relacional completo, chaves estrangeiras e índices GIN em [`docs/04-diagrama-entidade-relacionamento.md`](docs/04-diagrama-entidade-relacionamento.md).
-
-Modelo relacional composto por `users`, `stores`, `store_memberships`, `primary_items` (produtos com serialização opcional), `secondary_items` (insumos por quantidade), `customers`, `orders`, `order_items`, `stock_ledger` (livro razão contábil de movimentações) e `audit_logs`, otimizado com índices B-Tree e índices **GIN** para busca acelerada em colunas `JSONB`.
+*Acesse a aplicação no navegador em `http://localhost:3000`.*
 
 ---
 
-## 5. Stack Tecnológica Completa
-> 📄 **Documentação Detalhada:** Confira as versões das ferramentas, design tokens e bibliotecas em [`docs/05-stack-tecnologica.md`](docs/05-stack-tecnologica.md).
+## 📚 Documentação Detalhada por Seções
 
-* **Frontend:** React 19, TypeScript, Vite 8, Tailwind CSS v4 (*Warm Editorial Boutique UI*), Motion (`framer-motion` v12), Lucide React.
-* **Backend:** Fastify v4, Vercel Serverless Function (Node.js 22), Prisma ORM com binário nativo `rhel-openssl-3.0.x`.
-* **Banco de Dados:** PostgreSQL 17 no Supabase Cloud, PgBouncer Connection Pooler, Row-Level Security mandatório.
-* **Garantia de Qualidade:** Vitest, Node Test Runner nativo, TypeScript strict mode, ESLint.
+Para manter o projeto organizado e modular, a documentação técnica foi dividida em manuais dedicados:
 
----
-
-## 6. Como Executar o Projeto Localmente
-> 📄 **Documentação Detalhada:** Siga o tutorial de clone, configuração das variáveis de ambiente e seed em [`docs/06-execucao-local.md`](docs/06-execucao-local.md).
-
-Fluxo rápido de inicialização:
-1. `git clone https://github.com/ThiagoIbrahimVieira/opencrm.git && cd opencrm`
-2. `npm install --legacy-peer-deps && cd server && npm install --legacy-peer-deps && cd ..`
-3. Configure `server/.env` com chaves geradas de 32 bytes (`PII_ENCRYPTION_KEY_HEX` e `PII_HMAC_KEY_HEX`).
-4. Execute `npm run db:deploy && npm run db:seed` dentro de `server/`.
-5. Inicie o backend com `npm run dev` na pasta `server/` (porta 3333) e o frontend com `npm run dev` na raiz (porta 3000).
+| Documento | Conteúdo |
+| :--- | :--- |
+| 🎯 [**01. Visão Geral e Problema Resolvido**](docs/01-visao-geral.md) | Dores de ERPs rígidos vs no-code frágil, motor metadata-driven e pilares da solução. |
+| 🏛️ [**02. Topologia Arquitetural**](docs/02-topologia-arquitetural.md) | Diagramas Mermaid e ASCII, barreira assíncrona serverless e pooling PgBouncer. |
+| 🛡️ [**03. Segurança da Informação & LGPD**](docs/03-seguranca-e-lgpd.md) | Fórmulas do Blind Index HMAC-SHA256, AES-256-GCM, Argon2id e trilha de auditoria (Art. 18). |
+| 📊 [**04. Diagrama Entidade-Relacionamento (DER)**](docs/04-diagrama-entidade-relacionamento.md) | DER integral em Mermaid, chaves, isolamento por RLS e índices GIN sobre JSONB. |
+| 💻 [**05. Stack Tecnológica Completa**](docs/05-stack-tecnologica.md) | React 19, Fastify, Prisma (rhel native), Supabase PostgreSQL 17 e design tokens. |
+| 🚀 [**06. Como Executar o Projeto Localmente**](docs/06-execucao-local.md) | Passo a passo de instalação, geração de chaves de 32 bytes e credenciais de seed. |
+| 🧪 [**07. Suíte de Testes e Validação**](docs/07-testes-e-qualidade.md) | Relatório dos 57 testes automatizados (24 frontend, 33 backend) e tipagem estrita. |
+| ⚙️ [**08. Pipeline de CI/CD**](docs/08-pipeline-ci-cd.md) | Workflow do GitHub Actions, containers de serviço efêmeros e quality gates. |
+| ⚖️ [**09. Licença e Termos de Uso**](docs/09-licenca.md) | Termos de propriedade intelectual e conformidade jurídica. |
 
 ---
 
-## 7. Execução da Suíte de Testes e Validação de Tipagem
-> 📄 **Documentação Detalhada:** Consulte a especificação e suíte dos 57 testes em [`docs/07-testes-e-qualidade.md`](docs/07-testes-e-qualidade.md).
+## 🔬 Otimizações & Engenharia Serverless
 
-* **TypeScript Strict Mode & Lint:** `npm run lint` (0 erros).
-* **Testes de Frontend (24 testes):** `npm test` (isolamento zero-mock, componentes dinâmicos Zod e regras de loja).
-* **Testes de Backend (33 testes):** `cd server && npm test` (políticas RLS, AES-256-GCM, blind index e concorrência ACID).
-* **Build de Produção:** `npm run build` (empacotamento limpo de assets estáticos).
+A arquitetura do OpenCRM na nuvem foi desenhada para eliminar gargalos de concorrência e de *cold start*:
 
----
+```mermaid
+flowchart LR
+    A["Navegador (Client)"] --> B["Vercel Edge Network"]
+    B --> C["Serverless Function (Fastify Node 22)"]
+    C --> D["Barreira Assíncrona res.on('finish')"]
+    C --> E["Supabase Transaction Pooler (PgBouncer 6543)"]
+    E --> F["PostgreSQL 17 RLS (opencrm_app)"]
+```
 
-## 8. Pipeline de CI/CD (GitHub Actions)
-> 📄 **Documentação Detalhada:** Entenda o workflow automatizado e containers de teste em [`docs/08-pipeline-ci-cd.md`](docs/08-pipeline-ci-cd.md).
-
-Esteira automatizada em `.github/workflows/ci.yml`:
-1. Provisionamento de container efêmero `postgres:16-alpine`.
-2. Verificação estática de tipagem (`tsc --noEmit`) e linting.
-3. Execução da suíte de testes de frontend e build Vite.
-4. Aplicação de migrações SQL, script `rls.sql` e seed idempotente no banco.
-5. Execução de testes de integração e AppSec de backend antes de autorizar o deploy.
+1. **Transaction Pooling com PgBouncer:** Resolução de centenas de requisições concorrentes na porta `6543`, prevenindo o esgotamento do pool de conexões do PostgreSQL sob picos serverless.
+2. **Barreira Assíncrona no Serverless:** O adaptador Fastify aguarda o evento `res.on('finish')` antes de sinalizar a conclusão, impedindo congelamento de processos em background.
+3. **Target Nativo RHEL:** Compilação do Prisma Client com `rhel-openssl-3.0.x`, garantindo carregamento instantâneo em containers Linux na Vercel.
+4. **Isolamento Zero-Mock:** Contas reais conectam-se exclusivamente ao banco Supabase; dados de demonstração (`mockData`) são ativados unicamente no modo interativo explícito.
 
 ---
 
-## 9. Licença
-> 📄 **Documentação Detalhada:** Leia os direitos autorais e termos de uso em [`docs/09-licenca.md`](docs/09-licenca.md).
+## 🧪 Testes Automatizados
 
-Desenvolvido sob licença comercial proprietária por **Thiago Ibrahim Vieira**. Todos os direitos reservados.
+O projeto conta com uma suíte de **57 testes automatizados (100% de aprovação)** cobrindo frontend e backend:
+
+```bash
+# Executar suíte de testes do Frontend (24 testes)
+npm test
+
+# Executar suíte de testes de integração, RLS e AppSec do Backend (33 testes)
+cd server && npm test
+```
+
+---
+
+## ⚖️ Licença & Aviso Legal
+
+Desenvolvido para fins corporativos sob licença comercial proprietária. Todos os direitos reservados. O tratamento de dados pessoais realizado por instâncias deste software deve obedecer estritamente aos ditames da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+
+---
+
+<p align="center">
+  Desenvolvido por <strong>Thiago Ibrahim</strong> 🚀
+</p>
