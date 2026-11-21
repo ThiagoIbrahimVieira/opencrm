@@ -1,0 +1,43 @@
+{
+  "targetUrl": "https://opencrm-ashy.vercel.app",
+  "timestamp": "2026-11-21T02:50:24.797Z",
+  "results": {
+    "itemA": {
+      "test": "O botão 'Continuar com Google' no topo da tela de Login está visível e funcional",
+      "passed": true,
+      "buttonCount": 1,
+      "isVisible": true,
+      "clickTriggered": true,
+      "screenshot": "tools/evidence-a-google-login-btn.png"
+    },
+    "itemB": {
+      "test": "Na aba 'Criar Conta Gratuita' (Administrador), a opção 'Outros / Personalizado' está presente no seletor de segmento",
+      "passed": true,
+      "selectVisible": true,
+      "optionsFound": [
+        "Celulares & Assistência",
+        "Lanchonete & Hamburgueria",
+        "Loja de Roupas & Moda",
+        "Informática & Eletrônicos",
+        "Pet Shop & Clínica",
+        "Papelaria & Presentes",
+        "Oficina Mecânica",
+        "Cafeteria & Padaria",
+        "Ótica & Joalheria",
+        "Outros / Personalizado",
+        "Outros / Personalizado"
+      ],
+      "hasOutrosOption": true,
+      "screenshot": "tools/evidence-b-outros-personalizado-option.png"
+    },
+    "itemC": {
+      "test": "O fluxo de cadastro com a opção 'Outros / Personalizado' abre automaticamente o modal 'Criar Nova Loja / Segmento' com o nome da loja pré-preenchido",
+      "passed": true,
+      "isModalVisible": true,
+      "expectedStoreName": "Aurora Joias & Design",
+      "actualStoreName": "Aurora Joias & Design",
+      "isPrefilledCorrectly": true,
+      "screenshot": "tools/evidence-c-store-wizard-modal-prefilled.png"
+    }
+  }
+}
