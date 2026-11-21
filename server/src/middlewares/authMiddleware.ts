@@ -3,12 +3,14 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 
 export type UserRole = 'ADMIN' | 'VENDEDOR';
+export type AccountType = 'ADMIN' | 'VENDEDOR' | 'UNSET';
 
 export interface AuthTokenPayload {
   userId: string;
   activeStoreId: string | null;
   storeId: string;
   role: UserRole | null;
+  accountType?: AccountType;
   email: string;
   name: string;
   avatarUrl?: string | null;

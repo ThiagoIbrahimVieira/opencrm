@@ -618,5 +618,56 @@ test('crmService searchCustomer finds customer by exact CPF or phone', async () 
   assert.equal(notFound, null);
 });
 
+test('AuraCellService strictly isolates real accounts from mock stores and hydrates from API', () => {
+  // Real account service starts empty
+  const realSvc = new AuraCellService(undefined, false);
+  assert.equal(realSvc.getIsDemoMode(), false);
+  assert.equal(realSvc.listStores().length, 0);
+  assert.equal(realSvc.getActiveStoreId(), '');
+  assert.equal(realSvc.listSmartphones().length, 0);
+  assert.equal(realSvc.listAccessories().length, 0);
+  assert.equal(realSvc.listCustomers().length, 0);
+  assert.equal(realSvc.getDashboardSummary().availableSmartphones, 0);
+
+  // Hydrating empty stores list keeps it strictly empty (zero mock leak!)
+  realSvc.hydrateStoresFromApi([]);
+  assert.equal(realSvc.listStores().length, 0);
+  assert.equal(realSvc.getActiveStoreId(), '');
+  assert.equal(realSvc.listSmartphones().length, 0);
+
+  // Hydrating real stores from Supabase
+  realSvc.hydrateStoresFromApi([
+    {
+      storeId: 'store-real-01',
+      role: 'ADMIN',
+      store: {
+        id: 'store-real-01',
+        name: 'Minha Padaria Artesanal',
+        slug: 'minha-padaria-artesanal',
+        segment: 'Cafeteria & Padaria',
+      },
+    },
+  ]);
+
+  assert.equal(realSvc.listStores().length, 1);
+  assert.equal(realSvc.getActiveStoreId(), 'store-real-01');
+  assert.equal(realSvc.getActiveTemplate().storeName, 'Minha Padaria Artesanal');
+  assert.equal(realSvc.getActiveTemplate().segment, 'Cafeteria & Padaria');
+  // New real store starts with empty inventory, not AuraCell phones
+  assert.equal(realSvc.listSmartphones().length, 0);
+
+  // Setting demo mode explicitly loads the 3 demo mock stores
+  realSvc.setDemoMode(true);
+  assert.equal(realSvc.getIsDemoMode(), true);
+  assert.equal(realSvc.listStores().length, 3);
+  assert.ok(realSvc.listSmartphones().length > 0);
+
+  // Resetting for real account purges mocks completely
+  realSvc.resetForRealAccount();
+  assert.equal(realSvc.getIsDemoMode(), false);
+  assert.equal(realSvc.listStores().length, 0);
+  assert.equal(realSvc.listSmartphones().length, 0);
+});
+
 
 

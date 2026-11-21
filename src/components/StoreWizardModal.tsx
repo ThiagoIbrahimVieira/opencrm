@@ -6,6 +6,7 @@ import {
   Check,
   Eye,
   Layers,
+  LogOut,
   Plus,
   Sparkles,
   Store,
@@ -15,6 +16,7 @@ import {
 import {
   BUILTIN_TEMPLATES,
   BUILTIN_TEMPLATE_PRESET_CARDS,
+  CUSTOM_SCRATCH_SEGMENT,
   GENERIC_RETAIL_PRESET_ID,
   OTHER_SEGMENT_OPTION,
   STORE_SEGMENT_SUGGESTIONS,
@@ -41,6 +43,10 @@ interface StoreWizardModalProps {
   onCreateStore: (template: StoreTemplate) => void;
   initialStoreName?: string;
   initialStartMode?: 'preset' | 'scratch';
+  initialSegment?: string;
+  isMandatory?: boolean;
+  onLogout?: () => void;
+  onBackToRoleSelection?: () => void;
 }
 
 type StartMode = 'preset' | 'scratch';
@@ -54,8 +60,6 @@ const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; sublabel: str
   { value: 'date', label: 'Data', sublabel: 'Validade ou previsão' },
   { value: 'boolean', label: 'Sim / Não', sublabel: 'Interruptor tátil oliva' },
 ];
-
-const INITIAL_SCRATCH_SEGMENT = 'Pet Shop & Clínica';
 
 function slugifyKey(label: string): string {
   return label
@@ -72,40 +76,39 @@ export function StoreWizardModal({
   onCreateStore,
   initialStoreName,
   initialStartMode,
+  initialSegment,
+  isMandatory = false,
+  onLogout,
+  onBackToRoleSelection,
 }: StoreWizardModalProps) {
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   // Step 1: Identity & Start Mode
   const [storeName, setStoreName] = React.useState(initialStoreName ?? '');
-  const [segment, setSegment] = React.useState(INITIAL_SCRATCH_SEGMENT);
+  const [segment, setSegment] = React.useState<string>(CUSTOM_SCRATCH_SEGMENT);
   const [customSegment, setCustomSegment] = React.useState('');
   const [segmentOptions, setSegmentOptions] = React.useState<string[]>(
     STORE_SEGMENT_SUGGESTIONS
   );
   const [startMode, setStartMode] = React.useState<StartMode>(initialStartMode ?? 'scratch');
-  const [scratchVariant, setScratchVariant] = React.useState<ScratchVariant>('preset');
+  const [scratchVariant, setScratchVariant] = React.useState<ScratchVariant>('blank');
   const [selectedPresetId, setSelectedPresetId] = React.useState<string>(
     GENERIC_RETAIL_PRESET_ID
   );
   const [appliedScratchSegment, setAppliedScratchSegment] = React.useState<string>(
-    INITIAL_SCRATCH_SEGMENT
+    CUSTOM_SCRATCH_SEGMENT
   );
 
   // Step 2: Feature flags & dynamic labels
-  const initialScratchPreset = React.useMemo(
-    () => getSegmentScratchPreset(INITIAL_SCRATCH_SEGMENT),
-    []
-  );
+  const initialBlankPreset = React.useMemo(() => getBlankScratchPreset(), []);
   const [features, setFeatures] = React.useState<StoreFeatureFlags>(
-    initialScratchPreset.features
+    initialBlankPreset.features
   );
-  const [labels, setLabels] = React.useState<StoreLabels>(initialScratchPreset.labels);
+  const [labels, setLabels] = React.useState<StoreLabels>(initialBlankPreset.labels);
 
-  // Step 3: Custom fields builder
-  const [primaryFields, setPrimaryFields] = React.useState<CustomFieldDefinition[]>(
-    initialScratchPreset.primaryFields
-  );
+  // Step 3: Custom fields builder (starts strictly blank with zero fields)
+  const [primaryFields, setPrimaryFields] = React.useState<CustomFieldDefinition[]>([]);
 
   // New field composer inside Step 3
   const [newFieldLabel, setNewFieldLabel] = React.useState('');
@@ -113,13 +116,27 @@ export function StoreWizardModal({
   const [newFieldOptionsRaw, setNewFieldOptionsRaw] = React.useState('');
   const [newFieldRequired, setNewFieldRequired] = React.useState(false);
 
-  const isOtherSegment = segment === OTHER_SEGMENT_OPTION;
-  const resolvedSegment = isOtherSegment ? customSegment.trim() : segment.trim();
+  const isOtherSegment =
+    segment === OTHER_SEGMENT_OPTION ||
+    segment === CUSTOM_SCRATCH_SEGMENT ||
+    segment === 'Outros / Personalizado' ||
+    segment.toLowerCase().includes('personalizado') ||
+    segment.toLowerCase().includes('outro');
+
+  const resolvedSegment = isOtherSegment
+    ? (customSegment.trim() || 'Personalizado')
+    : segment.trim();
 
   const applyScratchPresetForSegment = React.useCallback(
-    (seg: string, variant: ScratchVariant = 'preset') => {
+    (seg: string, variant: ScratchVariant = 'blank') => {
+      const isCustomSeg =
+        seg === CUSTOM_SCRATCH_SEGMENT ||
+        seg === OTHER_SEGMENT_OPTION ||
+        seg === 'Outros / Personalizado' ||
+        seg.toLowerCase().includes('personalizado');
+
       const preset =
-        variant === 'blank'
+        variant === 'blank' || isCustomSeg
           ? getBlankScratchPreset()
           : hasDedicatedSegmentPreset(seg)
             ? getSegmentScratchPreset(seg)
@@ -140,31 +157,69 @@ export function StoreWizardModal({
 
   React.useEffect(() => {
     if (open) {
-      const preset = getSegmentScratchPreset(INITIAL_SCRATCH_SEGMENT);
       setStep(1);
       setErrorMsg(null);
       setStoreName(initialStoreName ?? '');
-      setStartMode(initialStartMode ?? 'scratch');
-      setScratchVariant('preset');
-      setSelectedPresetId(GENERIC_RETAIL_PRESET_ID);
-      setSegment(INITIAL_SCRATCH_SEGMENT);
+
+      const initialSeg = initialSegment
+        ? (initialSegment === 'other' || initialSegment === 'Outros / Personalizado'
+            ? CUSTOM_SCRATCH_SEGMENT
+            : initialSegment)
+        : CUSTOM_SCRATCH_SEGMENT;
+
+      const isCustom =
+        initialSeg === CUSTOM_SCRATCH_SEGMENT ||
+        initialSeg === 'Outros / Personalizado' ||
+        initialSeg === OTHER_SEGMENT_OPTION ||
+        initialSeg.toLowerCase().includes('personalizado');
+
+      setSegment(initialSeg);
       setCustomSegment('');
-      setFeatures({ ...preset.features });
-      setLabels({ ...preset.labels });
-      setPrimaryFields(
-        preset.primaryFields.map((f, idx) => ({
-          ...f,
-          id: `cf-init-${idx + 1}`,
-          options: f.options ? [...f.options] : undefined,
-        }))
-      );
-      setAppliedScratchSegment(`preset::${INITIAL_SCRATCH_SEGMENT}`);
+
+      const effectiveStartMode = initialStartMode ?? 'scratch';
+      setStartMode(effectiveStartMode);
+
+      if (isCustom || effectiveStartMode === 'scratch') {
+        setScratchVariant('blank');
+        const blankPreset = getBlankScratchPreset();
+        setFeatures({ ...blankPreset.features });
+        setLabels({ ...blankPreset.labels });
+        setPrimaryFields([]);
+        setAppliedScratchSegment(`blank::${initialSeg}`);
+      } else {
+        const matchingBuiltin = BUILTIN_TEMPLATES.find(
+          (t) => t.segment.toLowerCase() === initialSeg.toLowerCase()
+        );
+        const presetId = matchingBuiltin ? matchingBuiltin.id : GENERIC_RETAIL_PRESET_ID;
+        setSelectedPresetId(presetId);
+        const generic = getSimpleCatalogScratchPreset();
+        setFeatures({ ...generic.features });
+        setLabels({ ...generic.labels });
+        setPrimaryFields(
+          generic.primaryFields.map((f, idx) => ({
+            ...f,
+            id: `cf-generic-${idx}-${Date.now()}`,
+            options: f.options ? [...f.options] : undefined,
+          }))
+        );
+      }
+
       setNewFieldLabel('');
       setNewFieldType('text');
       setNewFieldOptionsRaw('');
       setNewFieldRequired(false);
     }
-  }, [open, initialStoreName, initialStartMode]);
+  }, [open, initialStoreName, initialStartMode, initialSegment]);
+
+  // Prevent closing via ESC in mandatory mode
+  React.useEffect(() => {
+    if (!open || isMandatory) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, isMandatory, onClose]);
 
   if (!open) return null;
 
@@ -176,8 +231,9 @@ export function StoreWizardModal({
 
   const allSegmentSelectOptions = [
     ...segmentOptions
-      .filter((s) => s !== OTHER_SEGMENT_OPTION)
+      .filter((s) => s !== OTHER_SEGMENT_OPTION && s !== CUSTOM_SCRATCH_SEGMENT)
       .map((s) => ({ value: s, label: s })),
+    { value: CUSTOM_SCRATCH_SEGMENT, label: CUSTOM_SCRATCH_SEGMENT },
     { value: OTHER_SEGMENT_OPTION, label: OTHER_SEGMENT_OPTION },
   ];
 
@@ -215,13 +271,29 @@ export function StoreWizardModal({
   const handleSegmentSelectChange = (nextSegment: string) => {
     setSegment(nextSegment);
     setErrorMsg(null);
-    if (nextSegment !== OTHER_SEGMENT_OPTION) {
+    const isCustom =
+      nextSegment === OTHER_SEGMENT_OPTION ||
+      nextSegment === CUSTOM_SCRATCH_SEGMENT ||
+      nextSegment === 'Outros / Personalizado' ||
+      nextSegment.toLowerCase().includes('personalizado');
+
+    if (!isCustom) {
       setCustomSegment('');
     }
 
-    const targetSeg = nextSegment === OTHER_SEGMENT_OPTION ? '' : nextSegment;
+    if (isCustom) {
+      setStartMode('scratch');
+      setScratchVariant('blank');
+      const blank = getBlankScratchPreset();
+      setFeatures({ ...blank.features });
+      setLabels({ ...blank.labels });
+      setPrimaryFields([]);
+      setAppliedScratchSegment(`blank::${nextSegment}`);
+      return;
+    }
+
     const matchingBuiltin = BUILTIN_TEMPLATES.find(
-      (t) => t.segment.toLowerCase() === targetSeg.toLowerCase()
+      (t) => t.segment.toLowerCase() === nextSegment.toLowerCase()
     );
 
     if (matchingBuiltin && startMode === 'preset') {
@@ -229,21 +301,18 @@ export function StoreWizardModal({
       return;
     }
 
-    // If user picks a segment with its own dedicated preset (e.g. Papelaria, Joalheria, Cafeteria, Pet Shop),
-    // immediately align to that segment's preset so it is never stuck on Lanchonete or Celulares.
-    if (hasDedicatedSegmentPreset(targetSeg)) {
+    if (hasDedicatedSegmentPreset(nextSegment)) {
       setStartMode('scratch');
       setScratchVariant('preset');
-      applyScratchPresetForSegment(targetSeg, 'preset');
+      applyScratchPresetForSegment(nextSegment, 'preset');
       return;
     }
 
-    // For "Outro (especificar)" or custom generic segment
     if (startMode === 'preset') {
       applyPresetTemplate(GENERIC_RETAIL_PRESET_ID);
     } else {
-      setScratchVariant('preset');
-      applyScratchPresetForSegment(targetSeg, 'preset');
+      setScratchVariant('blank');
+      applyScratchPresetForSegment(nextSegment, 'blank');
     }
   };
 
@@ -428,8 +497,10 @@ export function StoreWizardModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#1F1E1B]/45 backdrop-blur-[2px] flex items-center justify-center p-4 overflow-y-auto no-print"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print ${
+        isMandatory ? 'bg-[#F4F2EC]' : 'bg-[#1F1E1B]/45 backdrop-blur-[2px]'
+      }`}
+      onClick={isMandatory ? undefined : onClose}
     >
       <div
         role="dialog"
@@ -454,14 +525,16 @@ export function StoreWizardModal({
                 </h2>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Fechar assistente de nova loja"
-              className="p-1.5 rounded-lg text-[#6E6B63] hover:bg-[#EFECE6] hover:text-[#1F1E1B] cursor-pointer"
-            >
-              <X className="h-4.5 w-4.5" />
-            </button>
+            {!isMandatory && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Fechar assistente de nova loja"
+                className="p-1.5 rounded-lg text-[#6E6B63] hover:bg-[#EFECE6] hover:text-[#1F1E1B] cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            )}
           </div>
 
           {/* 3-Step Editorial Progress Indicator */}
@@ -1231,7 +1304,7 @@ export function StoreWizardModal({
 
         {/* Sticky Footer */}
         <div className="px-6 py-4 bg-white border-t border-[#E5E2D9] flex items-center justify-between gap-3 shrink-0">
-          <div>
+          <div className="flex items-center gap-2">
             {step > 1 ? (
               <AuraButton
                 variant="outline"
@@ -1240,6 +1313,30 @@ export function StoreWizardModal({
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Voltar
               </AuraButton>
+            ) : isMandatory ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                {onBackToRoleSelection && (
+                  <AuraButton
+                    variant="outline"
+                    size="sm"
+                    onClick={onBackToRoleSelection}
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    Voltar à seleção de perfil
+                  </AuraButton>
+                )}
+                {onLogout && (
+                  <AuraButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={onLogout}
+                    className="text-[#6E6B63] hover:text-[#9B3B2B]"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sair da conta
+                  </AuraButton>
+                )}
+              </div>
             ) : (
               <AuraButton variant="ghost" onClick={onClose}>
                 Cancelar
@@ -1248,6 +1345,16 @@ export function StoreWizardModal({
           </div>
 
           <div className="flex items-center gap-2.5">
+            {isMandatory && step > 1 && onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="text-xs text-[#6E6B63] hover:text-[#9B3B2B] mr-2 inline-flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="h-3 w-3" />
+                Sair
+              </button>
+            )}
             {step < 3 ? (
               <AuraButton variant="primary" onClick={handleNextStep}>
                 Continuar

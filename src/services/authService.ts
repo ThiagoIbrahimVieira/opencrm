@@ -19,6 +19,8 @@ export interface RegisterSellerInput {
 export interface AuthStoreState {
   currentUser: AuthUser | null;
   teamMembers: TeamMember[];
+  isDemoMode: boolean;
+  needsRoleChoice?: boolean;
 }
 
 type Listener = () => void;
@@ -75,11 +77,17 @@ export class AuthService {
   private state: AuthStoreState;
   private listeners: Set<Listener> = new Set();
 
-  constructor(initialUser: AuthUser | null = null) {
+  constructor(initialUser: AuthUser | null = null, isDemoMode = false) {
     this.state = {
       currentUser: initialUser,
       teamMembers: INITIAL_TEAM.map((m) => ({ ...m })),
+      isDemoMode,
+      needsRoleChoice: false,
     };
+  }
+
+  isDemoMode(): boolean {
+    return this.state.isDemoMode;
   }
 
   subscribe(listener: Listener): () => void {
@@ -135,11 +143,12 @@ export class AuthService {
       name: member.name,
       email: member.email,
       role: member.role,
+      accountType: member.role,
       initials: member.initials,
       storeUnit: member.storeUnit,
     };
 
-    this.state = { ...this.state, currentUser: sessionUser };
+    this.state = { ...this.state, currentUser: sessionUser, isDemoMode: false, needsRoleChoice: false };
     this.notify();
 
     if (typeof window !== 'undefined') {
@@ -178,13 +187,16 @@ export class AuthService {
         });
 
         if (data?.user) {
+          const accountType = data.user.accountType || (data.needsRoleChoice ? 'UNSET' : (data.user.role || 'ADMIN'));
+          const role = data.user.role || (accountType === 'ADMIN' ? 'ADMIN' : (accountType === 'VENDEDOR' ? 'VENDEDOR' : 'ADMIN'));
           const sessionUser: AuthUser = {
             id: data.user.id,
             name: data.user.name,
             email: data.user.email,
-            role: data.user.role || 'ADMIN',
+            role,
+            accountType,
             initials: buildInitials(data.user.name),
-            storeUnit: data.store?.name || 'Workspace',
+            storeUnit: data.store?.name || (data.stores?.length > 0 ? data.stores[0].name : (accountType === 'VENDEDOR' ? 'Aguardando vínculo' : 'Workspace')),
           };
 
           const newMember: TeamMember = {
@@ -192,6 +204,7 @@ export class AuthService {
             name: sessionUser.name,
             email: sessionUser.email,
             role: sessionUser.role,
+            accountType: sessionUser.accountType,
             initials: sessionUser.initials,
             storeUnit: sessionUser.storeUnit,
             active: true,
@@ -202,6 +215,8 @@ export class AuthService {
           this.state = {
             ...this.state,
             currentUser: sessionUser,
+            isDemoMode: false,
+            needsRoleChoice: Boolean(data.needsRoleChoice || accountType === 'UNSET'),
             teamMembers: [...this.state.teamMembers.filter((m) => m.email !== email), newMember],
           };
           this.notify();
@@ -270,6 +285,7 @@ export class AuthService {
             name: res.user.name,
             email: res.user.email,
             role: 'ADMIN',
+            accountType: 'ADMIN',
             initials: buildInitials(res.user.name),
             storeUnit: res.store?.name || storeName,
           };
@@ -283,6 +299,7 @@ export class AuthService {
           name: adminName,
           email: adminEmail,
           role: 'ADMIN',
+          accountType: 'ADMIN',
           initials: buildInitials(adminName),
           storeUnit: storeName,
         };
@@ -293,6 +310,7 @@ export class AuthService {
         name: adminName,
         email: adminEmail,
         role: 'ADMIN',
+        accountType: 'ADMIN',
         initials: buildInitials(adminName),
         storeUnit: storeName,
       };
@@ -303,6 +321,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       role: 'ADMIN',
+      accountType: 'ADMIN',
       initials: user.initials,
       storeUnit: user.storeUnit,
       active: true,
@@ -313,6 +332,8 @@ export class AuthService {
     this.state = {
       ...this.state,
       currentUser: user,
+      isDemoMode: false,
+      needsRoleChoice: false,
       teamMembers: [...this.state.teamMembers.filter((m) => m.email !== user.email), member],
     };
     this.notify();
@@ -355,6 +376,7 @@ export class AuthService {
             name: res.user.name,
             email: res.user.email,
             role: 'VENDEDOR',
+            accountType: 'VENDEDOR',
             initials: buildInitials(res.user.name),
             storeUnit: res.store?.name || 'Aguardando vínculo',
           };
@@ -368,6 +390,7 @@ export class AuthService {
           name: cleanName,
           email: cleanEmail,
           role: 'VENDEDOR',
+          accountType: 'VENDEDOR',
           initials: buildInitials(cleanName),
           storeUnit: 'Aguardando vínculo',
         };
@@ -378,6 +401,7 @@ export class AuthService {
         name: cleanName,
         email: cleanEmail,
         role: 'VENDEDOR',
+        accountType: 'VENDEDOR',
         initials: buildInitials(cleanName),
         storeUnit: 'Aguardando vínculo',
       };
@@ -388,6 +412,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       role: 'VENDEDOR',
+      accountType: 'VENDEDOR',
       initials: user.initials,
       storeUnit: user.storeUnit,
       active: true,
@@ -398,6 +423,8 @@ export class AuthService {
     this.state = {
       ...this.state,
       currentUser: user,
+      isDemoMode: false,
+      needsRoleChoice: false,
       teamMembers: [...this.state.teamMembers.filter((m) => m.email !== user.email), member],
     };
     this.notify();
@@ -457,11 +484,12 @@ export class AuthService {
       name: member.name,
       email: member.email,
       role: member.role,
+      accountType: member.role,
       initials: member.initials,
       storeUnit: member.storeUnit,
     };
 
-    this.state = { ...this.state, currentUser: sessionUser };
+    this.state = { ...this.state, currentUser: sessionUser, isDemoMode: true, needsRoleChoice: false };
     this.notify();
 
     if (typeof window !== 'undefined') {
@@ -484,28 +512,92 @@ export class AuthService {
   /**
    * Google OAuth 2.0 / OIDC login via backend.
    */
-  async loginGoogle(idToken: string): Promise<{ user: AuthUser; needsOnboarding: boolean }> {
+  async loginGoogle(idToken: string): Promise<{ user: AuthUser; needsOnboarding: boolean; needsRoleChoice: boolean }> {
     const data = await apiRequest('/api/auth/google', {
       method: 'POST',
       body: JSON.stringify({ idToken }),
     });
 
+    const accountType = data.user.accountType || (data.needsRoleChoice ? 'UNSET' : (data.user.role || 'ADMIN'));
+    const role = data.user.role || (accountType === 'ADMIN' ? 'ADMIN' : (accountType === 'VENDEDOR' ? 'VENDEDOR' : 'ADMIN'));
+    const needsRoleChoice = Boolean(data.needsRoleChoice || accountType === 'UNSET');
+
     const user: AuthUser = {
       id: data.user.id,
       name: data.user.name,
       email: data.user.email,
-      role: data.user.role || 'ADMIN',
+      role,
+      accountType,
       initials: buildInitials(data.user.name),
-      storeUnit: data.store?.name || 'Nova Loja',
+      storeUnit: data.store?.name || (data.stores?.length > 0 ? data.stores[0].name : (accountType === 'VENDEDOR' ? 'Aguardando vínculo' : 'Nova Loja')),
     };
 
     this.state = {
       ...this.state,
       currentUser: user,
+      isDemoMode: false,
+      needsRoleChoice,
     };
     this.notify();
 
-    return { user, needsOnboarding: Boolean(data.needsOnboarding) };
+    return { user, needsOnboarding: Boolean(data.needsOnboarding), needsRoleChoice };
+  }
+
+  /**
+   * Atualiza a intenção de perfil do usuário (ADMIN ou VENDEDOR) no backend e no estado local.
+   */
+  async setAccountType(accountType: 'ADMIN' | 'VENDEDOR'): Promise<AuthUser> {
+    if (typeof window !== 'undefined') {
+      try {
+        const data = await apiRequest('/api/auth/account-type', {
+          method: 'PATCH',
+          body: JSON.stringify({ accountType }),
+        });
+        if (data?.user && this.state.currentUser) {
+          const updatedUser: AuthUser = {
+            ...this.state.currentUser,
+            role: accountType,
+            accountType,
+          };
+          this.state = {
+            ...this.state,
+            currentUser: updatedUser,
+            needsRoleChoice: false,
+          };
+          this.notify();
+          return updatedUser;
+        }
+      } catch (err) {
+        console.warn('Falha na API account-type, atualizando estado local:', err);
+      }
+    }
+
+    if (this.state.currentUser) {
+      const updatedUser: AuthUser = {
+        ...this.state.currentUser,
+        role: accountType,
+        accountType,
+      };
+      this.state = {
+        ...this.state,
+        currentUser: updatedUser,
+        needsRoleChoice: false,
+      };
+      this.notify();
+      return updatedUser;
+    }
+    throw new Error('Nenhum usuário ativo para definir papel.');
+  }
+
+  /**
+   * Permite reabrir a seleção de perfil (ADMIN / VENDEDOR).
+   */
+  setNeedsRoleChoice(needs: boolean): void {
+    this.state = {
+      ...this.state,
+      needsRoleChoice: needs,
+    };
+    this.notify();
   }
 
   async switchStore(storeId: string): Promise<void> {
@@ -533,7 +625,7 @@ export class AuthService {
   }
 
   logout(): void {
-    this.state = { ...this.state, currentUser: null };
+    this.state = { ...this.state, currentUser: null, isDemoMode: false, needsRoleChoice: false };
     this.notify();
 
     if (typeof window !== 'undefined') {
@@ -555,27 +647,37 @@ export class AuthService {
     return { ok: true, message: 'Demais sessões revogadas com sucesso.', revokedCount: 0 };
   }
 
-  async hydrateSession(): Promise<void> {
-    if (typeof window === 'undefined') return;
+  async hydrateSession(): Promise<AuthUser | null> {
+    if (typeof window === 'undefined') return null;
     try {
       const data = await apiRequest('/api/auth/me');
       if (data?.user) {
+        const accountType = data.user.accountType || (data.needsRoleChoice ? 'UNSET' : (data.user.role || 'ADMIN'));
+        const role = data.user.role || (accountType === 'ADMIN' ? 'ADMIN' : (accountType === 'VENDEDOR' ? 'VENDEDOR' : 'VENDEDOR'));
+        const needsRoleChoice = Boolean(data.needsRoleChoice || accountType === 'UNSET');
+
+        const sessionUser: AuthUser = {
+          id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          role,
+          accountType,
+          initials: buildInitials(data.user.name),
+          storeUnit: data.store?.name || (data.stores?.length > 0 ? data.stores[0].name : (accountType === 'VENDEDOR' ? 'Aguardando vínculo' : '')),
+        };
         this.state = {
           ...this.state,
-          currentUser: {
-            id: data.user.id,
-            name: data.user.name,
-            email: data.user.email,
-            role: data.user.role || 'ADMIN',
-            initials: buildInitials(data.user.name),
-            storeUnit: data.store?.name || data.user.storeUnit || 'Loja Jardins',
-          },
+          currentUser: sessionUser,
+          isDemoMode: false,
+          needsRoleChoice,
         };
         this.notify();
+        return sessionUser;
       }
     } catch {
       // Ignora falha de sessão offline
     }
+    return null;
   }
 
   listTeamMembers(): TeamMember[] {

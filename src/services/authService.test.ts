@@ -108,3 +108,35 @@ test('AuthService revokeOtherSessions terminates other sessions cleanly', async 
   assert.equal(res.ok, true);
   assert.equal(typeof res.revokedCount, 'number');
 });
+
+test('AuthService differentiates demo vs real sessions and manages account-type selection', async () => {
+  const auth = new AuthService(null);
+  assert.equal(auth.isDemoMode(), false);
+
+  // Demo login sets demo mode
+  auth.loginDemo('ADMIN');
+  assert.equal(auth.isDemoMode(), true);
+  assert.equal(auth.getCurrentUser()?.role, 'ADMIN');
+
+  // Logout clears demo mode
+  auth.logout();
+  assert.equal(auth.isDemoMode(), false);
+  assert.equal(auth.getCurrentUser(), null);
+
+  // Registering store or seller is a real account session
+  const admin = await auth.registerStore({
+    adminName: 'Loja Real Admin',
+    adminEmail: 'realadmin@loja.com.br',
+    adminPassword: 'password123',
+    storeName: 'Loja Real Brasil',
+    segment: 'Varejo',
+  });
+  assert.equal(auth.isDemoMode(), false);
+  assert.equal(admin.accountType, 'ADMIN');
+
+  // Updating account type
+  const updated = await auth.setAccountType('VENDEDOR');
+  assert.equal(updated.accountType, 'VENDEDOR');
+  assert.equal(updated.role, 'VENDEDOR');
+  assert.equal(auth.getCurrentUser()?.accountType, 'VENDEDOR');
+});

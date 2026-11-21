@@ -1,10 +1,12 @@
 export type UserRole = 'ADMIN' | 'VENDEDOR';
+export type AccountType = 'ADMIN' | 'VENDEDOR' | 'UNSET';
 
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  accountType?: AccountType;
   initials: string;
   storeUnit: string;
 }

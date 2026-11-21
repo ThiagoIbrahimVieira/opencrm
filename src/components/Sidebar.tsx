@@ -53,6 +53,7 @@ interface SidebarProps {
   onLogout: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  isDemoMode?: boolean;
 }
 
 function CounterPill({ value, alert = false }: { value: number; alert?: boolean }) {
@@ -83,6 +84,7 @@ export function Sidebar({
   onLogout,
   mobileOpen,
   onCloseMobile,
+  isDemoMode = false,
 }: SidebarProps) {
   const [catalogExpanded, setCatalogExpanded] = React.useState(true);
   const [postSaleExpanded, setPostSaleExpanded] = React.useState(true);
@@ -534,38 +536,50 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Quick RBAC Profile Switcher + Logout Footer */}
+      {/* Quick RBAC Profile Switcher (Demo Only) or Fixed Role Badge (Real Accounts) */}
       <div className="px-3.5 py-3 border-t border-[#DFDDD3] space-y-2.5">
-        <div
-          role="group"
-          aria-label="Alternar perfil de acesso"
-          className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#E2DED4]"
-        >
-          <button
-            type="button"
-            onClick={() => onSwitchRole('ADMIN')}
-            aria-pressed={isAdmin}
-            className={`h-7 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
-              isAdmin
-                ? 'bg-white text-[#1F1E1B] shadow-xs'
-                : 'text-[#5E5B54] hover:text-[#1F1E1B]'
-            }`}
+        {isDemoMode ? (
+          <div
+            role="group"
+            aria-label="Alternar perfil de acesso (Demonstração)"
+            className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#E2DED4]"
           >
-            Admin
-          </button>
-          <button
-            type="button"
-            onClick={() => onSwitchRole('VENDEDOR')}
-            aria-pressed={!isAdmin}
-            className={`h-7 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
-              !isAdmin
-                ? 'bg-white text-[#1F1E1B] shadow-xs'
-                : 'text-[#5E5B54] hover:text-[#1F1E1B]'
-            }`}
-          >
-            Vendedor
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => onSwitchRole('ADMIN')}
+              aria-pressed={isAdmin}
+              className={`h-7 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                isAdmin
+                  ? 'bg-white text-[#1F1E1B] shadow-xs'
+                  : 'text-[#5E5B54] hover:text-[#1F1E1B]'
+              }`}
+            >
+              Demo Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchRole('VENDEDOR')}
+              aria-pressed={!isAdmin}
+              className={`h-7 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                !isAdmin
+                  ? 'bg-white text-[#1F1E1B] shadow-xs'
+                  : 'text-[#5E5B54] hover:text-[#1F1E1B]'
+              }`}
+            >
+              Demo Vendedor
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-[#FAF9F5] border border-[#E5E2D9]">
+            <span className="text-[11px] font-medium text-[#7A776E] uppercase tracking-wider">
+              Papel Ativo
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#4F5A47]/10 text-[#4F5A47]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#4F5A47]" />
+              {isAdmin ? 'Administrador' : 'Vendedor'}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between px-1 text-[11px] text-[#6E6B63]">
           <span className="truncate">{currentUser.email}</span>

@@ -42,8 +42,10 @@ export interface StoreSeedDataset {
 }
 
 export const OTHER_SEGMENT_OPTION = 'Outro (especificar)';
+export const CUSTOM_SCRATCH_SEGMENT = 'Personalizado (Do zero)';
 
 export const STORE_SEGMENT_SUGGESTIONS: string[] = [
+  'Personalizado (Do zero)',
   'Celulares & Assistência',
   'Lanchonete & Hamburgueria',
   'Loja de Roupas & Moda',
