@@ -19,9 +19,11 @@ import {
   UpdateCustomerInput,
 } from './types/crm';
 import { StoreTemplate } from './types/template';
-import { buildDefaultTemplateForStore } from './data/templates';
+import { buildDefaultTemplateForStore, CUSTOM_SCRATCH_SEGMENT } from './data/templates';
+import { apiRequest } from './services/apiClient';
 import { LoginView, RegisterSellerFormData, RegisterStoreFormData } from './components/LoginView';
 import { AwaitingStoreAccessView } from './components/AwaitingStoreAccessView';
+import { RoleChoiceView } from './components/RoleChoiceView';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { InventoryView } from './components/InventoryView';
@@ -181,11 +183,23 @@ function AppInner() {
       setPublicWarrantyToken(match[1]);
     }
 
-    authService.hydrateSession();
-
     const params = new URLSearchParams(window.location.search);
     if (params.get('autostart') === '1' && !authService.getCurrentUser()) {
+      crmService.setDemoMode(true);
       authService.loginDemo('ADMIN');
+    } else {
+      authService.hydrateSession().then((user) => {
+        if (user) {
+          crmService.setDemoMode(false);
+          apiRequest('/api/stores/mine')
+            .then((stores) => {
+              crmService.hydrateStoresFromApi(Array.isArray(stores) ? stores : []);
+            })
+            .catch(() => {
+              crmService.hydrateStoresFromApi([]);
+            });
+        }
+      });
     }
   }, []);
 
@@ -226,12 +240,7 @@ function AppInner() {
     }
   }, [publicWarrantyToken]);
 
-  // Se o usuário for ADMIN e ainda não possuir lojas, abre o Wizard de criação (NUNCA para VENDEDOR)
-  React.useEffect(() => {
-    if (currentUser && currentUser.role === 'ADMIN' && (!store?.stores || store.stores.length === 0)) {
-      setStoreWizardOpen(true);
-    }
-  }, [currentUser, store?.stores]);
+
 
   const [receivedInvite, setReceivedInvite] = React.useState<{
     storeId: string;
@@ -259,7 +268,14 @@ function AppInner() {
 
   const handleLogin = React.useCallback(
     async (credentials: LoginCredentials) => {
+      crmService.setDemoMode(false);
       const user = await authService.loginWithBackend(credentials);
+      try {
+        const stores = await apiRequest('/api/stores/mine');
+        crmService.hydrateStoresFromApi(Array.isArray(stores) ? stores : []);
+      } catch {
+        crmService.hydrateStoresFromApi([]);
+      }
       crmService.logAuditEvent({
         actor: user.name,
         actorRole: user.role,
@@ -275,6 +291,7 @@ function AppInner() {
 
   const handleDemoLogin = React.useCallback(
     (role: UserRole) => {
+      crmService.setDemoMode(true);
       const user = authService.loginDemo(role);
       crmService.logAuditEvent({
         actor: user.name,
@@ -330,6 +347,7 @@ function AppInner() {
     setWizardInitialStoreName(undefined);
     setWizardInitialStartMode(undefined);
     authService.logout();
+    crmService.resetForRealAccount();
   }, []);
 
   const handleNavigate = React.useCallback(
@@ -397,13 +415,21 @@ function AppInner() {
   const handleGoogleLogin = React.useCallback(
     async (idToken: string) => {
       try {
+        crmService.setDemoMode(false);
         const res = await authService.loginGoogle(idToken);
-        if (res.needsOnboarding) {
+        try {
+          const stores = await apiRequest('/api/stores/mine');
+          crmService.hydrateStoresFromApi(Array.isArray(stores) ? stores : []);
+        } catch {
+          crmService.hydrateStoresFromApi([]);
+        }
+        if (res.needsRoleChoice || res.user.accountType === 'UNSET') {
+          pushToast('Bem-vindo(a)! Escolha seu perfil', 'Defina como você deseja operar no Open CRM.');
+        } else if (res.needsOnboarding) {
           pushToast(
             'Bem-vindo(a)! Conclua o Onboarding',
             'Crie sua primeira loja para configurar os dados e templates.'
           );
-          setStoreWizardOpen(true);
         } else {
           pushToast(
             `Bem-vindo(a), ${res.user.name.split(' ')[0]}`,
@@ -421,9 +447,20 @@ function AppInner() {
   );
 
   const handleCreateStore = React.useCallback(
-    (newTemplate: StoreTemplate) => {
+    async (newTemplate: StoreTemplate) => {
+      const isDemo = authService.isDemoMode();
       const activeUser = authService.getCurrentUser() ?? authService.loginDemo('ADMIN');
       const created = crmService.createStoreFromTemplate(newTemplate, activeUser.name);
+
+      if (!isDemo && typeof window !== 'undefined') {
+        try {
+          const stores = await apiRequest('/api/stores/mine');
+          if (Array.isArray(stores) && stores.length > 0) {
+            crmService.hydrateStoresFromApi(stores);
+          }
+        } catch {}
+      }
+
       setSelectedCustomerId(null);
       setSelectedSmartphoneDetailId(null);
       setWarrantyPreview(null);
@@ -447,6 +484,7 @@ function AppInner() {
 
   const handleRegisterStore = React.useCallback(
     async (data: RegisterStoreFormData) => {
+      crmService.setDemoMode(false);
       const user = await authService.registerStore({
         adminName: data.adminName,
         adminEmail: data.adminEmail,
@@ -458,6 +496,7 @@ function AppInner() {
       const isOther = data.segment === 'other' || data.segment === 'Outros / Personalizado';
 
       if (isOther) {
+        crmService.hydrateStoresFromApi([]);
         setSelectedCustomerId(null);
         setSelectedSmartphoneDetailId(null);
         setWarrantyPreview(null);
@@ -483,6 +522,13 @@ function AppInner() {
       const template = buildDefaultTemplateForStore(data.storeName, data.segment);
       const created = crmService.createStoreFromTemplate(template, user.name);
 
+      try {
+        const stores = await apiRequest('/api/stores/mine');
+        if (Array.isArray(stores) && stores.length > 0) {
+          crmService.hydrateStoresFromApi(stores);
+        }
+      } catch {}
+
       setSelectedCustomerId(null);
       setSelectedSmartphoneDetailId(null);
       setWarrantyPreview(null);
@@ -507,11 +553,13 @@ function AppInner() {
 
   const handleRegisterSeller = React.useCallback(
     async (data: RegisterSellerFormData) => {
+      crmService.setDemoMode(false);
       const user = await authService.registerSeller({
         name: data.name,
         email: data.email,
         password: data.password,
       });
+      crmService.hydrateStoresFromApi([]);
 
       setSelectedCustomerId(null);
       setSelectedSmartphoneDetailId(null);
@@ -563,9 +611,30 @@ function AppInner() {
     );
   }
 
+  // 1º acesso Google sem vínculo ou perfil pendente de definição
+  if (currentUser.accountType === 'UNSET' || auth.needsRoleChoice) {
+    return (
+      <>
+        <RoleChoiceView
+          currentUser={currentUser}
+          onChooseAdmin={async () => {
+            await authService.setAccountType('ADMIN');
+            pushToast('Perfil definido como Administrador', 'Configure sua primeira loja para começar.');
+          }}
+          onChooseSeller={async () => {
+            await authService.setAccountType('VENDEDOR');
+            pushToast('Perfil definido como Vendedor', 'Aguardando vinculação com sua loja.');
+          }}
+          onLogout={handleLogout}
+        />
+        <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
+  }
+
   // Se o usuário for VENDEDOR e não possuir lojas vinculadas, exibe tela de espera
   if (
-    currentUser.role === 'VENDEDOR' &&
+    (currentUser.accountType === 'VENDEDOR' || currentUser.role === 'VENDEDOR') &&
     (!store?.stores || store.stores.length === 0 || currentUser.storeUnit === 'Aguardando vínculo')
   ) {
     return (
@@ -576,6 +645,10 @@ function AppInner() {
           onRefreshAccess={async () => {
             const res = await authService.refreshUserAndStores();
             if (res.storesCount > 0) {
+              try {
+                const stores = await apiRequest('/api/stores/mine');
+                crmService.hydrateStoresFromApi(Array.isArray(stores) ? stores : []);
+              } catch {}
               pushToast('Acesso liberado!', 'Você foi vinculado a uma loja com sucesso.');
               await authService.hydrateSession();
             } else {
@@ -585,6 +658,29 @@ function AppInner() {
               );
             }
           }}
+        />
+        <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
+  }
+
+  // Se o usuário for ADMIN e não possuir lojas vinculadas, renderiza Onboarding Obrigatório e Bloqueante
+  if (
+    (currentUser.accountType === 'ADMIN' || currentUser.role === 'ADMIN') &&
+    (!store?.stores || store.stores.length === 0)
+  ) {
+    return (
+      <>
+        <StoreWizardModal
+          open={true}
+          isMandatory={true}
+          onClose={() => {}}
+          onCreateStore={handleCreateStore}
+          onLogout={handleLogout}
+          onBackToRoleSelection={() => authService.setNeedsRoleChoice(true)}
+          initialStoreName={wizardInitialStoreName}
+          initialSegment={CUSTOM_SCRATCH_SEGMENT}
+          initialStartMode={wizardInitialStartMode ?? 'scratch'}
         />
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       </>
@@ -849,6 +945,7 @@ function AppInner() {
       {/* Persistent Desktop Sidebar / Mobile Drawer */}
       <Sidebar
         currentUser={currentUser}
+        isDemoMode={auth.isDemoMode}
         activeTemplate={activeTemplate}
         stores={store.stores}
         activeSection={activeSection}

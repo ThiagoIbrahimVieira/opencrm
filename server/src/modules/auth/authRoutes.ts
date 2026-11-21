@@ -17,8 +17,9 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/register-store', async (req, reply) => {
     const schema = z.object({
       storeName: z.string().min(2),
-      segment: z.string().min(2),
+      segment: z.string().min(1),
       templateConfig: z.record(z.any()),
+      catalogOptions: z.record(z.any()).optional(),
       adminName: z.string().min(2),
       adminEmail: z.string().email(),
       adminPassword: z.string().min(6).optional(),
@@ -35,11 +36,13 @@ export async function authRoutes(app: FastifyInstance) {
         id: result.user.id,
         name: result.user.name,
         email: result.user.email,
+        accountType: result.user.accountType,
         role: result.user.role,
         avatarUrl: result.user.avatarUrl,
         storeUnit: result.store.name,
       },
       store: result.store,
+      stores: result.stores,
       accessToken: result.accessToken,
     });
   });
@@ -63,11 +66,14 @@ export async function authRoutes(app: FastifyInstance) {
         id: result.user.id,
         name: result.user.name,
         email: result.user.email,
+        accountType: result.user.accountType,
         role: result.user.role,
         avatarUrl: result.user.avatarUrl,
         storeUnit: result.store?.name || '',
       },
       store: result.store,
+      stores: result.stores,
+      memberships: result.memberships,
       accessToken: result.accessToken,
       needsStoreAccess: result.needsStoreAccess,
     });
@@ -92,13 +98,16 @@ export async function authRoutes(app: FastifyInstance) {
         id: result.user.id,
         name: result.user.name,
         email: result.user.email,
+        accountType: result.user.accountType,
         role: result.user.role,
         avatarUrl: result.user.avatarUrl,
         storeUnit: result.store?.name || '',
       },
       store: result.store,
+      stores: result.stores,
       accessToken: result.accessToken,
       needsOnboarding: result.needsOnboarding,
+      needsRoleChoice: result.needsRoleChoice,
     });
   });
 
@@ -120,6 +129,7 @@ export async function authRoutes(app: FastifyInstance) {
         id: result.user.id,
         name: result.user.name,
         email: result.user.email,
+        accountType: result.user.accountType,
         role: result.user.role,
         avatarUrl: result.user.avatarUrl,
         storeUnit: result.store?.name || '',
@@ -147,13 +157,38 @@ export async function authRoutes(app: FastifyInstance) {
         id: result.user.id,
         name: result.user.name,
         email: result.user.email,
+        accountType: result.user.accountType,
         role: result.user.role,
         avatarUrl: result.user.avatarUrl,
         storeUnit: result.store?.name || '',
       },
       store: result.store,
+      stores: result.stores,
+      memberships: result.memberships,
       accessToken: result.accessToken,
       needsOnboarding: result.needsOnboarding,
+      needsRoleChoice: result.needsRoleChoice,
+    });
+  });
+
+  // PATCH /api/auth/account-type
+  app.patch('/account-type', { preHandler: [authenticateToken] }, async (req, reply) => {
+    const schema = z.object({
+      accountType: z.enum(['ADMIN', 'VENDEDOR']),
+    });
+
+    const body = schema.parse(req.body);
+    const result = await AuthService.updateAccountType(req.user!.userId, body.accountType);
+
+    reply.setCookie('access_token', result.accessToken, { ...cookieOptions, maxAge: 15 * 60 });
+    reply.setCookie('refresh_token', result.refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
+
+    return reply.send({
+      user: result.user,
+      store: result.store,
+      stores: result.stores,
+      memberships: result.memberships,
+      accessToken: result.accessToken,
     });
   });
 
@@ -216,32 +251,53 @@ export async function authRoutes(app: FastifyInstance) {
 
   // GET /api/auth/me
   app.get('/me', { preHandler: [authenticateToken] }, async (req, reply) => {
-    const user = req.user!;
-    const activeStoreId = user.activeStoreId || user.storeId;
+    const userToken = req.user!;
+    const activeStoreId = userToken.activeStoreId || userToken.storeId;
 
-    const [store, memberships] = await Promise.all([
+    const [dbUser, store, memberships] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userToken.userId },
+      }),
       activeStoreId
         ? prisma.store.findUnique({
             where: { id: activeStoreId },
           })
         : null,
       prisma.storeMembership.findMany({
-        where: { userId: user.userId, isActive: true },
+        where: { userId: userToken.userId, isActive: true },
         include: { store: true },
         orderBy: { createdAt: 'asc' },
       }),
     ]);
 
+    if (!dbUser) {
+      return reply.status(404).send({ error: 'Usuário não localizado.' });
+    }
+
+    const activeMembership = activeStoreId
+      ? memberships.find((m) => m.storeId === activeStoreId) || null
+      : memberships[0] || null;
+
+    const actualRole = activeMembership ? (activeMembership.role as any) : null;
+
     return reply.send({
       user: {
-        id: user.userId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatarUrl: user.avatarUrl,
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        accountType: dbUser.accountType,
+        role: actualRole,
+        avatarUrl: dbUser.avatarUrl,
         storeUnit: store?.name || '',
       },
       store,
+      stores: memberships.map((m) => ({
+        id: m.store.id,
+        name: m.store.name,
+        slug: m.store.slug,
+        segment: m.store.segment,
+        role: m.role,
+      })),
       memberships: memberships.map((m) => ({
         storeId: m.storeId,
         role: m.role,
@@ -253,6 +309,7 @@ export async function authRoutes(app: FastifyInstance) {
         },
       })),
       needsOnboarding: memberships.length === 0,
+      needsRoleChoice: dbUser.accountType === 'UNSET' && memberships.length === 0,
     });
   });
 }

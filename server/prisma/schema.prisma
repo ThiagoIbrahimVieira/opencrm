@@ -14,6 +14,12 @@ enum Role {
   VENDEDOR
 }
 
+enum AccountType {
+  ADMIN
+  VENDEDOR
+  UNSET
+}
+
 enum PrimaryItemStatus {
   DISPONIVEL
   RESERVADO
@@ -58,8 +64,9 @@ model User {
   email        String   @unique
   passwordHash String?  @map("password_hash")
   googleSub    String?  @unique @map("google_sub")
-  avatarUrl    String?  @map("avatar_url")
-  createdAt    DateTime @default(now()) @map("created_at")
+  avatarUrl    String?     @map("avatar_url")
+  accountType  AccountType @default(UNSET) @map("account_type")
+  createdAt    DateTime    @default(now()) @map("created_at")
 
   memberships   StoreMembership[]
   refreshTokens RefreshToken[]

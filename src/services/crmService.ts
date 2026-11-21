@@ -6,6 +6,7 @@ import {
   StoreSeedDataset,
   buildAtelierLinhoSeed,
   buildAuraCellSeed,
+  buildDefaultTemplateForStore,
   buildEmptyStoreSeed,
   buildSaborBrasaSeed,
   templateRequiresImeiLuhn,
@@ -152,30 +153,149 @@ export class AuraCellService {
   private activeStoreId: string;
   private cachedSnapshot!: CrmStoreState;
   private listeners: Set<Listener> = new Set();
+  private isDemoMode: boolean;
 
-  constructor(initialState?: StoreSeedDataset) {
-    this.stores = buildInitialWorkspaces(initialState);
-    this.activeStoreId = AURACELL_TEMPLATE.id;
+  constructor(initialState?: StoreSeedDataset, isDemoMode = true) {
+    this.isDemoMode = isDemoMode;
+    if (isDemoMode) {
+      this.stores = buildInitialWorkspaces(initialState);
+      this.activeStoreId = AURACELL_TEMPLATE.id;
+    } else {
+      this.stores = new Map<string, StoreWorkspace>();
+      this.activeStoreId = '';
+    }
     this.rebuildSnapshot();
   }
 
-  private get activeWorkspace(): StoreWorkspace {
+  getIsDemoMode(): boolean {
+    return this.isDemoMode;
+  }
+
+  setDemoMode(enabled: boolean): void {
+    this.isDemoMode = enabled;
+    if (enabled) {
+      this.stores = buildInitialWorkspaces();
+      this.activeStoreId = AURACELL_TEMPLATE.id;
+    } else {
+      this.stores = new Map<string, StoreWorkspace>();
+      this.activeStoreId = '';
+    }
+    this.notify();
+  }
+
+  resetForRealAccount(): void {
+    this.isDemoMode = false;
+    this.stores = new Map<string, StoreWorkspace>();
+    this.activeStoreId = '';
+    this.notify();
+  }
+
+  hydrateStoresFromApi(apiStores: any[]): void {
+    this.isDemoMode = false;
+    if (!Array.isArray(apiStores) || apiStores.length === 0) {
+      this.stores = new Map<string, StoreWorkspace>();
+      this.activeStoreId = '';
+      this.notify();
+      return;
+    }
+
+    const nextStores = new Map<string, StoreWorkspace>();
+
+    for (const item of apiStores) {
+      const storeObj = item.store || item;
+      const storeId = item.storeId || storeObj.id;
+      if (!storeId) continue;
+
+      let template: StoreTemplate;
+      if (storeObj.templateConfig && storeObj.templateConfig.labels && storeObj.templateConfig.features) {
+        template = {
+          ...storeObj.templateConfig,
+          id: storeId,
+          storeName: storeObj.name || storeObj.templateConfig.storeName || 'Loja',
+          segment: storeObj.segment || storeObj.templateConfig.segment || 'Varejo Geral',
+        };
+      } else {
+        template = {
+          ...buildDefaultTemplateForStore(storeObj.name || 'Loja', storeObj.segment || 'Varejo Geral'),
+          id: storeId,
+        };
+      }
+
+      const existing = this.stores.get(storeId);
+      nextStores.set(storeId, {
+        storeId,
+        template,
+        data: existing ? existing.data : buildEmptyStoreSeed(template),
+      });
+    }
+
+    this.stores = nextStores;
+    if (!this.stores.has(this.activeStoreId)) {
+      this.activeStoreId = Array.from(this.stores.keys())[0] || '';
+    }
+    this.notify();
+  }
+
+  private get activeWorkspace(): StoreWorkspace | null {
+    if (this.stores.size === 0) return null;
     return (
       this.stores.get(this.activeStoreId) ??
-      Array.from(this.stores.values())[0]
+      Array.from(this.stores.values())[0] ??
+      null
     );
   }
 
   private get state(): StoreSeedDataset {
+    if (!this.activeWorkspace) {
+      return this.cachedSnapshot;
+    }
     return this.activeWorkspace.data;
   }
 
   private set state(next: StoreSeedDataset) {
-    this.activeWorkspace.data = next;
+    if (this.activeWorkspace) {
+      this.activeWorkspace.data = next;
+    }
   }
 
   private rebuildSnapshot(): void {
-    const ws = this.activeWorkspace;
+    if (this.stores.size === 0) {
+      const dummyTemplate: StoreTemplate = {
+        id: '',
+        storeName: '',
+        segment: '',
+        description: '',
+        labels: {
+          primaryTabName: 'Produtos',
+          secondaryTabName: 'Complementos',
+          primaryItemSingular: 'Produto',
+          secondaryItemSingular: 'Complemento',
+          orderActionLabel: 'Novo Pedido',
+          crossSellTitle: 'Itens Sugeridos',
+        },
+        features: {
+          hasSerializedItems: false,
+          hasWarrantyQr: false,
+          hasExpirationDate: false,
+          hasEntryChecklist: false,
+          hasCompatibilityCrossSell: false,
+          hasTradeIn: false,
+        },
+        primaryFields: [],
+        secondaryFields: [],
+        defaultChecklist: [],
+      };
+      const emptySeed = buildEmptyStoreSeed(dummyTemplate);
+      this.cachedSnapshot = {
+        ...emptySeed,
+        activeStoreId: '',
+        activeTemplate: null as any,
+        stores: [],
+      };
+      return;
+    }
+
+    const ws = this.activeWorkspace!;
     const storeList: StoreSummaryItem[] = Array.from(this.stores.values()).map((item) => ({
       storeId: item.storeId,
       template: item.template,
@@ -199,8 +319,13 @@ export class AuraCellService {
   }
 
   reset(): void {
-    this.stores = buildInitialWorkspaces();
-    this.activeStoreId = AURACELL_TEMPLATE.id;
+    if (this.isDemoMode) {
+      this.stores = buildInitialWorkspaces();
+      this.activeStoreId = AURACELL_TEMPLATE.id;
+    } else {
+      this.stores = new Map<string, StoreWorkspace>();
+      this.activeStoreId = '';
+    }
     this.notify();
   }
 
@@ -219,7 +344,7 @@ export class AuraCellService {
   }
 
   getActiveTemplate(): StoreTemplate {
-    return this.activeWorkspace.template;
+    return this.activeWorkspace ? this.activeWorkspace.template : (null as any);
   }
 
   switchStore(storeId: string): StoreSummaryItem {
@@ -264,6 +389,17 @@ export class AuraCellService {
     });
     this.activeStoreId = candidateId;
     this.notify();
+
+    if (!this.isDemoMode && typeof window !== 'undefined') {
+      apiRequest('/api/stores', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: cleanName,
+          segment: normalizedTemplate.segment,
+          templateConfig: normalizedTemplate,
+        }),
+      }).catch(() => {});
+    }
 
     return { storeId: candidateId, template: normalizedTemplate };
   }
@@ -1634,7 +1770,7 @@ export class AuraCellService {
   }
 }
 
-export const crmService = new AuraCellService();
+export const crmService = new AuraCellService(undefined, false);
 
 /**
  * Generates and downloads a UTF-8 CSV file in the browser.

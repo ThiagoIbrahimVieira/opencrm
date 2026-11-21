@@ -4,7 +4,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../../db/prisma.js';
 import { env } from '../../config/env.js';
 import { hashPassword, verifyPassword, hashToken } from '../../utils/crypto.js';
-import { AuthTokenPayload, UserRole } from '../../middlewares/authMiddleware.js';
+import { AuthTokenPayload, UserRole, AccountType } from '../../middlewares/authMiddleware.js';
 import { AppError } from '../../utils/errors.js';
 
 const googleClient = new OAuth2Client();
@@ -33,29 +33,34 @@ export class AuthService {
     storeName: string;
     segment: string;
     templateConfig: any;
+    catalogOptions?: any;
     adminName: string;
     adminEmail: string;
     adminPassword?: string;
     existingUserId?: string;
   }) {
     const email = data.adminEmail.trim().toLowerCase();
-    const storeName = data.storeName.trim();
+    const storeName = data.storeName.trim() || 'Loja';
     const rawSlug = storeName
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    const existingSlug = await prisma.store.findUnique({ where: { slug: rawSlug } });
-    const finalSlug = existingSlug ? `${rawSlug}-${crypto.randomBytes(3).toString('hex')}` : rawSlug;
+      .replace(/^-+|-+$/g, '') || 'loja';
 
     return await prisma.$transaction(async (tx) => {
+      const existingSlug = await tx.store.findUnique({ where: { slug: rawSlug } });
+      const finalSlug = existingSlug ? `${rawSlug}-${crypto.randomBytes(3).toString('hex')}` : rawSlug;
+
       // 1. Identidade Global do Usuário
       let user;
       if (data.existingUserId) {
         user = await tx.user.findUnique({ where: { id: data.existingUserId } });
         if (!user) throw new Error('Usuário autenticado não localizado.');
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: { accountType: 'ADMIN' },
+        });
       } else {
         user = await tx.user.findUnique({ where: { email } });
         if (!user) {
@@ -68,27 +73,59 @@ export class AuthService {
               name: data.adminName.trim(),
               email,
               passwordHash,
+              accountType: 'ADMIN',
             },
+          });
+        } else {
+          user = await tx.user.update({
+            where: { id: user.id },
+            data: { accountType: 'ADMIN' },
           });
         }
       }
 
-      // 2. Criação da Loja
-      const store = await tx.store.create({
+      // 2. Prevenção de duplicidade/fantasmas (fluxo customizado 'other' ou duplo clique rápido)
+      const recentThreshold = new Date(Date.now() - 15 * 1000);
+      const existingRecentMembership = await tx.storeMembership.findFirst({
+        where: {
+          userId: user.id,
+          role: 'ADMIN',
+          createdAt: { gte: recentThreshold },
+          store: {
+            name: storeName,
+            segment: data.segment.trim(),
+          },
+        },
+        include: { store: true },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Criação da Loja (ou reaproveitamento se acabou de ser criada nesta fração de segundos)
+      const store = existingRecentMembership?.store || (await tx.store.create({
         data: {
           name: storeName,
           slug: finalSlug,
-          segment: data.segment,
+          segment: data.segment.trim(),
           templateConfig: data.templateConfig,
-          catalogOptions: {},
+          catalogOptions: data.catalogOptions || {},
         },
-      });
+      }));
 
       // 3. Vínculo como ADMIN em store_memberships
-      await tx.storeMembership.create({
-        data: {
+      await tx.storeMembership.upsert({
+        where: {
+          userId_storeId: {
+            userId: user.id,
+            storeId: store.id,
+          },
+        },
+        create: {
           userId: user.id,
           storeId: store.id,
+          role: 'ADMIN',
+          isActive: true,
+        },
+        update: {
           role: 'ADMIN',
           isActive: true,
         },
@@ -100,6 +137,7 @@ export class AuthService {
         activeStoreId: store.id,
         storeId: store.id,
         role: 'ADMIN',
+        accountType: 'ADMIN',
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
@@ -125,9 +163,19 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          accountType: 'ADMIN' as const,
           avatarUrl: user.avatarUrl,
           role: 'ADMIN' as UserRole,
         },
+        stores: [
+          {
+            id: store.id,
+            name: store.name,
+            slug: store.slug,
+            segment: store.segment,
+            role: 'ADMIN',
+          },
+        ],
         accessToken,
         refreshToken,
       };
@@ -189,6 +237,7 @@ export class AuthService {
       activeStoreId,
       storeId: activeStoreId || '',
       role: activeRole,
+      accountType: user.accountType,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
@@ -213,13 +262,32 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        accountType: user.accountType,
         avatarUrl: user.avatarUrl,
         role: activeRole,
       },
       store: activeMembership?.store || null,
+      stores: activeMemberships.map((m) => ({
+        id: m.store.id,
+        name: m.store.name,
+        slug: m.store.slug,
+        segment: m.store.segment,
+        role: m.role,
+      })),
+      memberships: activeMemberships.map((m) => ({
+        storeId: m.storeId,
+        role: m.role,
+        store: {
+          id: m.store.id,
+          name: m.store.name,
+          slug: m.store.slug,
+          segment: m.store.segment,
+        },
+      })),
       accessToken,
       refreshToken,
       needsOnboarding,
+      needsRoleChoice: user.accountType === 'UNSET' && needsOnboarding,
     };
   }
 
@@ -250,6 +318,7 @@ export class AuthService {
             name,
             email,
             passwordHash,
+            accountType: 'VENDEDOR',
           },
           include: {
             memberships: {
@@ -263,6 +332,7 @@ export class AuthService {
           data: {
             name: name || user.name,
             passwordHash,
+            accountType: 'VENDEDOR',
           },
           include: {
             memberships: {
@@ -281,16 +351,25 @@ export class AuthService {
         });
       }
 
-      const activeMembership = user.memberships[0] || null;
+      const activeMemberships = tx.storeMembership?.findMany
+        ? await tx.storeMembership.findMany({
+            where: { userId: user.id, isActive: true },
+            include: { store: true },
+            orderBy: { createdAt: 'asc' },
+          })
+        : (user.memberships || []);
+
+      const activeMembership = activeMemberships[0] || null;
       const activeStoreId = activeMembership?.storeId || null;
-      const activeRole = (activeMembership?.role as UserRole) || 'VENDEDOR';
-      const needsStoreAccess = !hasMemberships;
+      const activeRole = activeMembership ? (activeMembership.role as UserRole) : null;
+      const needsStoreAccess = activeMemberships.length === 0;
 
       const payload: AuthTokenPayload = {
         userId: user.id,
         activeStoreId,
         storeId: activeStoreId || '',
         role: activeRole,
+        accountType: 'VENDEDOR',
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
@@ -315,10 +394,28 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          accountType: 'VENDEDOR' as const,
           avatarUrl: user.avatarUrl,
           role: activeRole,
         },
         store: activeMembership?.store || null,
+        stores: activeMemberships.map((m) => ({
+          id: m.store.id,
+          name: m.store.name,
+          slug: m.store.slug,
+          segment: m.store.segment,
+          role: m.role,
+        })),
+        memberships: activeMemberships.map((m) => ({
+          storeId: m.storeId,
+          role: m.role,
+          store: {
+            id: m.store.id,
+            name: m.store.name,
+            slug: m.store.slug,
+            segment: m.store.segment,
+          },
+        })),
         accessToken,
         refreshToken,
         needsStoreAccess,
@@ -371,11 +468,13 @@ export class AuthService {
       throw new Error(`Nenhum usuário com o perfil '${role}' encontrado nesta loja demo.`);
     }
 
+    const accountType: AccountType = role === 'ADMIN' ? 'ADMIN' : 'VENDEDOR';
     const payload: AuthTokenPayload = {
       userId: membership.userId,
       activeStoreId: store.id,
       storeId: store.id,
       role,
+      accountType,
       email: membership.user.email,
       name: membership.user.name,
       avatarUrl: membership.user.avatarUrl,
@@ -400,6 +499,7 @@ export class AuthService {
         id: membership.user.id,
         name: membership.user.name,
         email: membership.user.email,
+        accountType,
         role,
         avatarUrl: membership.user.avatarUrl,
       },
@@ -457,20 +557,23 @@ export class AuthService {
       },
       include: {
         memberships: {
-          where: { isActive: true },
           include: { store: true },
         },
       },
     });
 
+    let needsRoleChoice = false;
+
     if (!user) {
-      // Usuário novo via Google
+      // 1º acesso (quando o usuário é criado via Google sem vínculo nem convite prévio de loja):
+      // deve gravar accountType = 'UNSET' e retornar needsRoleChoice: true
       user = await prisma.user.create({
         data: {
           name,
           email,
           googleSub,
           avatarUrl,
+          accountType: 'UNSET',
           passwordHash: null,
         },
         include: {
@@ -480,30 +583,65 @@ export class AuthService {
           },
         },
       });
-    } else if (!user.googleSub) {
-      // Vincula googleSub a usuário que já existia por email
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: { googleSub, avatarUrl: user.avatarUrl || avatarUrl },
-        include: {
-          memberships: {
-            where: { isActive: true },
-            include: { store: true },
+      needsRoleChoice = true;
+    } else {
+      // Vincula googleSub a usuário que já existia
+      if (!user.googleSub) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { googleSub, avatarUrl: user.avatarUrl || avatarUrl },
+          include: {
+            memberships: {
+              include: { store: true },
+            },
           },
-        },
-      });
+        });
+      }
+
+      // Se já existir convite prévio de um Admin para aquele e-mail (em store_memberships pendente ou membro de equipe com mesmo e-mail),
+      // vincule automaticamente como VENDEDOR (accountType = 'VENDEDOR') e retorne a sessão na loja correspondente.
+      if (user.memberships.length > 0) {
+        await prisma.storeMembership.updateMany({
+          where: { userId: user.id },
+          data: { isActive: true },
+        });
+
+        if (user.accountType === 'UNSET') {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { accountType: 'VENDEDOR' },
+            include: {
+              memberships: {
+                where: { isActive: true },
+                include: { store: true },
+              },
+            },
+          });
+        }
+        needsRoleChoice = false;
+      } else {
+        // Usuário existente sem nenhuma membership vinculada
+        needsRoleChoice = user.accountType === 'UNSET';
+      }
     }
 
-    const hasMemberships = user.memberships.length > 0;
-    const activeMembership = hasMemberships ? user.memberships[0] : null;
+    const activeMemberships = await prisma.storeMembership.findMany({
+      where: { userId: user.id, isActive: true },
+      include: { store: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const hasMemberships = activeMemberships.length > 0;
+    const activeMembership = hasMemberships ? activeMemberships[0] : null;
     const activeStoreId = activeMembership?.storeId || null;
-    const role = (activeMembership?.role as UserRole) || null;
+    const role = activeMembership ? (activeMembership.role as UserRole) : null;
 
     const payload: AuthTokenPayload = {
       userId: user.id,
       activeStoreId,
       storeId: activeStoreId || '',
       role,
+      accountType: user.accountType,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
@@ -528,13 +666,117 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        accountType: user.accountType,
         avatarUrl: user.avatarUrl,
         role,
       },
       store: activeMembership?.store || null,
+      stores: activeMemberships.map((m) => ({
+        id: m.store.id,
+        name: m.store.name,
+        slug: m.store.slug,
+        segment: m.store.segment,
+        role: m.role,
+      })),
+      memberships: activeMemberships.map((m) => ({
+        storeId: m.storeId,
+        role: m.role,
+        store: {
+          id: m.store.id,
+          name: m.store.name,
+          slug: m.store.slug,
+          segment: m.store.segment,
+        },
+      })),
       accessToken,
       refreshToken,
       needsOnboarding: !hasMemberships,
+      needsRoleChoice,
+    };
+  }
+
+  /**
+   * Atualiza a intenção de perfil do usuário (ADMIN | VENDEDOR).
+   */
+  static async updateAccountType(userId: string, accountType: 'ADMIN' | 'VENDEDOR') {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError('Usuário não encontrado.', 404);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { accountType },
+      include: {
+        memberships: {
+          where: { isActive: true },
+          include: { store: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    const activeMembership = updatedUser.memberships[0] || null;
+    const activeStoreId = activeMembership?.storeId || null;
+    const activeRole = activeMembership ? (activeMembership.role as UserRole) : null;
+
+    const payload: AuthTokenPayload = {
+      userId: updatedUser.id,
+      activeStoreId,
+      storeId: activeStoreId || '',
+      role: activeRole,
+      accountType: updatedUser.accountType,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      avatarUrl: updatedUser.avatarUrl,
+    };
+
+    const familyId = crypto.randomUUID();
+    const accessToken = this.signAccessToken(payload);
+    const refreshToken = this.signRefreshToken(payload, familyId);
+
+    await prisma.refreshToken.create({
+      data: {
+        userId: updatedUser.id,
+        storeId: activeStoreId,
+        familyId,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    return {
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        accountType: updatedUser.accountType,
+        avatarUrl: updatedUser.avatarUrl,
+        role: activeRole,
+      },
+      store: activeMembership?.store || null,
+      stores: updatedUser.memberships.map((m) => ({
+        id: m.store.id,
+        name: m.store.name,
+        slug: m.store.slug,
+        segment: m.store.segment,
+        role: m.role,
+      })),
+      memberships: updatedUser.memberships.map((m) => ({
+        storeId: m.storeId,
+        role: m.role,
+        store: {
+          id: m.store.id,
+          name: m.store.name,
+          slug: m.store.slug,
+          segment: m.store.segment,
+        },
+      })),
+      accessToken,
+      refreshToken,
     };
   }
 
@@ -566,6 +808,7 @@ export class AuthService {
       activeStoreId: membership.storeId,
       storeId: membership.storeId,
       role: membership.role as UserRole,
+      accountType: membership.user.accountType,
       email: membership.user.email,
       name: membership.user.name,
       avatarUrl: membership.user.avatarUrl,
@@ -649,6 +892,7 @@ export class AuthService {
         activeStoreId,
         storeId: activeStoreId || '',
         role,
+        accountType: user.accountType,
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
@@ -683,10 +927,18 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
+          accountType: user.accountType,
           avatarUrl: user.avatarUrl,
           role,
         },
         store: currentMembership?.store || null,
+        stores: user.memberships.map((m) => ({
+          id: m.store.id,
+          name: m.store.name,
+          slug: m.store.slug,
+          segment: m.store.segment,
+          role: m.role,
+        })),
       };
     } catch (err: any) {
       throw new Error(err.message || 'Falha ao renovar credenciais.');

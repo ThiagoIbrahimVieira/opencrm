@@ -38,8 +38,8 @@ export async function storeRoutes(app: FastifyInstance) {
   // POST /api/stores - Cria uma nova loja e vincula o usuário autenticado como ADMIN
   app.post('/', { preHandler: [authenticateToken] }, async (req, reply) => {
     const schema = z.object({
-      name: z.string().min(2, 'Nome da loja deve ter no mínimo 2 caracteres.'),
-      segment: z.string().min(2, 'Segmento é obrigatório.'),
+      name: z.string().min(2, 'Nome da loja deve ter no mínimo 2 caracteres.').trim(),
+      segment: z.string().min(1, 'Segmento é obrigatório.').trim(),
       templateConfig: z.record(z.any()),
       catalogOptions: z.record(z.any()).optional(),
     });
@@ -50,6 +50,7 @@ export async function storeRoutes(app: FastifyInstance) {
       storeName: body.name,
       segment: body.segment,
       templateConfig: body.templateConfig,
+      catalogOptions: body.catalogOptions,
       adminName: req.user!.name,
       adminEmail: req.user!.email,
       existingUserId: req.user!.userId,
@@ -62,6 +63,7 @@ export async function storeRoutes(app: FastifyInstance) {
       store: result.store,
       role: 'ADMIN',
       accessToken: result.accessToken,
+      user: result.user,
     });
   });
 
