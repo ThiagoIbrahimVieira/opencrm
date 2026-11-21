@@ -576,6 +576,7 @@ export function LoginView({
                             {seg}
                           </option>
                         ))}
+                        <option value="other">Outros / Personalizado</option>
                       </select>
                     </div>
                   </>
