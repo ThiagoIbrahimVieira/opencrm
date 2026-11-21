@@ -2,6 +2,12 @@
 
 > **Arquitetura Full-Stack Corporativa:** Frontend React 19 + TypeScript + Tailwind CSS (*Warm Editorial Boutique Design System*) integrado a Backend Fastify + TypeScript + Prisma ORM, banco de dados PostgreSQL 16 gerenciado no Supabase com **Row-Level Security (RLS) real**, criptografia de dados pessoais (**LGPD**), transações **ACID** com proteção contra race conditions e motor dinâmico de templates.
 
+### 🌐 Ambientes em Produção (Live)
+- **Frontend SPA (Vercel):** [https://opencrm-ashy.vercel.app](https://opencrm-ashy.vercel.app)
+- **Backend API (Render):** [https://opencrm-api.onrender.com/api/health](https://opencrm-api.onrender.com/api/health)
+- **Banco de Dados (Supabase PostgreSQL):** RLS ativado com isolamento multi-tenant real
+- **Repositório Oficial:** [https://github.com/ThiagoIbrahimVieira/opencrm](https://github.com/ThiagoIbrahimVieira/opencrm)
+
 ---
 
 ## 1. Visão Geral e Problema Resolvido
