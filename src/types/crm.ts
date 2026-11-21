@@ -112,6 +112,8 @@ export interface Customer {
   email: string;
   phone: string; // e.g. "(11) 98412-3390"
   cpf: string; // e.g. "394.821.508-42"
+  cpfLast4?: string;
+  phoneLast4?: string;
   city: string;
   status: CustomerStatus;
   segment: CustomerSegment;

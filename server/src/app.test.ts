@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { buildApp } from './app.js';
 import { AuthService } from './modules/auth/authService.js';
 import { buildValidIMEI } from './utils/luhn.js';
-import { encryptPii, decryptPii, blindIndex, maskCpf, maskPhone } from './utils/crypto.js';
+import { hashPassword, encryptPii, decryptPii, blindIndex, maskCpf, maskPhone } from './utils/crypto.js';
 import { prisma } from './db/prisma.js';
 
 describe('OpenCRM AppSec, RBAC & API Integration Suite', () => {
@@ -284,6 +284,32 @@ describe('OpenCRM AppSec, RBAC & API Integration Suite', () => {
 
       expect(res.statusCode).toBe(404);
       expect(res.json().message).toBe('Essa conta não existe.');
+    });
+
+    it('should return 401 with "Senha incorreta." when password does not match on POST /api/auth/login', async () => {
+      const realHash = await hashPassword('CorrectPassword123!');
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: 'u-user-01',
+        email: 'thiago@auracell.com.br',
+        passwordHash: realHash,
+        googleSub: null,
+        name: 'Thiago Vasconcelos',
+        avatarUrl: null,
+        createdAt: new Date(),
+        memberships: [{ storeId: '11111111-1111-1111-1111-111111111111', role: 'ADMIN', isActive: true }],
+      } as any);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: {
+          email: 'thiago@auracell.com.br',
+          password: 'WrongPassword999!',
+        },
+      });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json().message).toBe('Senha incorreta.');
     });
 
     it('should return 401 informing Google login when user has googleSub and no password', async () => {
