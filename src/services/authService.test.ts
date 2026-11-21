@@ -68,3 +68,18 @@ test('AuthService registerStore provisions new admin session and storeUnit', asy
   assert.equal(auth.getCurrentUser()?.email, 'carlos@padariasilveira.com.br');
   assert.equal(auth.isAdmin(), true);
 });
+
+test('AuthService registerSeller provisions seller session awaiting store access', async () => {
+  const auth = new AuthService(null);
+  const seller = await auth.registerSeller({
+    name: 'Juliana Paes',
+    email: 'juliana@vendas.com.br',
+    password: 'password123',
+  });
+
+  assert.equal(seller.role, 'VENDEDOR');
+  assert.equal(seller.name, 'Juliana Paes');
+  assert.equal(seller.storeUnit, 'Aguardando vínculo');
+  assert.equal(auth.getCurrentUser()?.email, 'juliana@vendas.com.br');
+  assert.equal(auth.isAdmin(), false);
+});
