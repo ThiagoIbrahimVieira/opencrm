@@ -1,5 +1,5 @@
 import React, { useSyncExternalStore } from 'react';
-import { AlertCircle, Menu, Search } from 'lucide-react';
+import { AlertCircle, Check, Menu, Search, Store } from 'lucide-react';
 import { authService } from './services/authService';
 import { crmService } from './services/crmService';
 import { LoginCredentials, UserRole } from './types/auth';
@@ -20,7 +20,8 @@ import {
 } from './types/crm';
 import { StoreTemplate } from './types/template';
 import { buildDefaultTemplateForStore } from './data/templates';
-import { LoginView, RegisterStoreFormData } from './components/LoginView';
+import { LoginView, RegisterSellerFormData, RegisterStoreFormData } from './components/LoginView';
+import { AwaitingStoreAccessView } from './components/AwaitingStoreAccessView';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { InventoryView } from './components/InventoryView';
@@ -219,12 +220,36 @@ function AppInner() {
     }
   }, [publicWarrantyToken]);
 
-  // Se o usuário estiver autenticado mas ainda não possuir lojas, abre o Wizard de criação
+  // Se o usuário for ADMIN e ainda não possuir lojas, abre o Wizard de criação (NUNCA para VENDEDOR)
   React.useEffect(() => {
-    if (currentUser && (!store?.stores || store.stores.length === 0)) {
+    if (currentUser && currentUser.role === 'ADMIN' && (!store?.stores || store.stores.length === 0)) {
       setStoreWizardOpen(true);
     }
   }, [currentUser, store?.stores]);
+
+  const [receivedInvite, setReceivedInvite] = React.useState<{
+    storeId: string;
+    storeName: string;
+    role: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const inviteStoreId = params.get('invite_store') || params.get('loja_id');
+      const inviteStoreName = params.get('store_name') || params.get('loja_nome');
+      if (inviteStoreId && inviteStoreName) {
+        setReceivedInvite({
+          storeId: inviteStoreId,
+          storeName: inviteStoreName,
+          role: params.get('role') === 'ADMIN' ? 'ADMIN' : 'VENDEDOR',
+        });
+      }
+    } catch {
+      // Ignora erro de parsing
+    }
+  }, []);
 
   const handleLogin = React.useCallback(
     async (credentials: LoginCredentials) => {
@@ -442,6 +467,34 @@ function AppInner() {
     [pushToast]
   );
 
+  const handleRegisterSeller = React.useCallback(
+    async (data: RegisterSellerFormData) => {
+      const user = await authService.registerSeller({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
+
+      setSelectedCustomerId(null);
+      setSelectedSmartphoneDetailId(null);
+      setWarrantyPreview(null);
+      setPublicWarrantyToken(null);
+      setPreselectedCustomerId(null);
+      setPreselectedSmartphoneId(null);
+      setPreselectedAccessoryId(null);
+      setOnlyLowStock(false);
+      setInventoryTab('smartphones');
+      setActiveSection('dashboard');
+      setStoreWizardOpen(false);
+
+      pushToast(
+        'Conta criada com sucesso',
+        `Bem-vindo(a), ${user.name.split(' ')[0]}! Aguardando vinculação de loja.`
+      );
+    },
+    [pushToast]
+  );
+
   if (!currentUser) {
     return (
       <>
@@ -450,12 +503,41 @@ function AppInner() {
           onDemoLogin={handleDemoLogin}
           onOpenCreateStore={() => setStoreWizardOpen(true)}
           onRegisterStore={handleRegisterStore}
+          onRegisterSeller={handleRegisterSeller}
           onGoogleLogin={handleGoogleLogin}
         />
         <StoreWizardModal
           open={storeWizardOpen}
           onClose={() => setStoreWizardOpen(false)}
           onCreateStore={handleCreateStore}
+        />
+        <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
+  }
+
+  // Se o usuário for VENDEDOR e não possuir lojas vinculadas, exibe tela de espera
+  if (
+    currentUser.role === 'VENDEDOR' &&
+    (!store?.stores || store.stores.length === 0 || currentUser.storeUnit === 'Aguardando vínculo')
+  ) {
+    return (
+      <>
+        <AwaitingStoreAccessView
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onRefreshAccess={async () => {
+            const res = await authService.refreshUserAndStores();
+            if (res.storesCount > 0) {
+              pushToast('Acesso liberado!', 'Você foi vinculado a uma loja com sucesso.');
+              await authService.hydrateSession();
+            } else {
+              pushToast(
+                'Ainda sem vínculo',
+                'Nenhuma loja encontrada para este e-mail. Peça ao Administrador para confirmar seu cadastro.'
+              );
+            }
+          }}
         />
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       </>
@@ -754,6 +836,49 @@ function AppInner() {
             activeSection === 'customers' ? 'max-w-[1320px]' : 'max-w-[1200px]'
           }`}
         >
+          {/* Banner de convite de nova loja */}
+          {receivedInvite && (
+            <div className="mb-6 bg-white border border-[#E5E2D9] rounded-2xl p-4 sm:p-5 shadow-[0_1px_2px_rgba(28,25,23,0.03)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-[#4F5A47]/10 text-[#4F5A47] flex items-center justify-center shrink-0">
+                  <Store className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-[#1F1E1B]">
+                    Convite de Equipe Recebido
+                  </h3>
+                  <p className="text-xs text-[#6E6B63] mt-0.5">
+                    Você foi convidado(a) para fazer parte da equipe da loja <strong className="text-[#1F1E1B]">{receivedInvite.storeName}</strong> ({receivedInvite.role === 'ADMIN' ? 'Admin' : 'Vendedor'}).
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <AuraButton
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    handleSwitchStore(receivedInvite.storeId);
+                    pushToast('Convite aceito!', `Você agora opera na loja ${receivedInvite.storeName}.`);
+                    setReceivedInvite(null);
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Aceitar Convite
+                </AuraButton>
+                <AuraButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setReceivedInvite(null);
+                    pushToast('Convite dispensado', 'O convite foi arquivado.');
+                  }}
+                >
+                  Recusar
+                </AuraButton>
+              </div>
+            </div>
+          )}
+
           {activeSection === 'dashboard' && (
             <DashboardView
               template={activeTemplate}

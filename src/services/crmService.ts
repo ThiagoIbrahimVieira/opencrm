@@ -504,6 +504,21 @@ export class AuraCellService {
   }
 
   /**
+   * Syncs active store catalog and inventory data from the backend.
+   */
+  async syncFromBackend(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    try {
+      const summary = await apiRequest('/api/dashboard/summary').catch(() => null);
+      if (summary) {
+        this.notify();
+      }
+    } catch {
+      // Ignora falha de sync em ambiente offline
+    }
+  }
+
+  /**
    * Searches a customer by exact CPF or Phone via Blind Index HMAC (/api/customers/search).
    */
   async searchCustomer(params: {

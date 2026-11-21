@@ -602,7 +602,7 @@ test('non-serialized primary stockQty, quick restockSmartphones, and frictionles
 });
 
 test('crmService searchCustomer finds customer by exact CPF or phone', async () => {
-  const svc = new CrmService(buildAuraCellSeed());
+  const svc = new AuraCellService();
   const firstCust = svc.listCustomers()[0];
 
   const foundByCpf = await svc.searchCustomer({ cpf: firstCust.cpf });
