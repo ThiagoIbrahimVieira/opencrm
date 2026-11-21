@@ -15,6 +15,9 @@ server/build/
 coverage/
 *.lcov
 
+# Handoff & Local Documentation
+HANDOFF.md
+
 # Environment & Sensitive Credentials (ZERO-LEAK)
 .env
 .env.*

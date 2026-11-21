@@ -1,0 +1,37 @@
+{
+  "target": "https://opencrm-ashy.vercel.app",
+  "timestamp": "2026-11-21T01:33:03.311Z",
+  "scenarios": [
+    {
+      "id": "CENARIO-01",
+      "title": "Login com e-mail inexistente (404 sem erro 500)",
+      "expected": "HTTP 404 com mensagem \"Essa conta não existe.\"",
+      "actual": {
+        "httpStatus": 500,
+        "uiMessage": "Erro HTTP 500:",
+        "rawBody": "A server error has occurred\n\nFUNCTION_INVOCATION_FAILED\n\ngru1::7bj4z-1795224737101-512b025b6349\n"
+      },
+      "passed": false,
+      "screenshot": "tools/cenario-1-login-inexistente.png"
+    },
+    {
+      "id": "CENARIO-02",
+      "title": "Botão \"Continuar com Google\" visível no topo da LoginView",
+      "expected": "Botão visível habilitado com Client ID configurado",
+      "actual": {
+        "visible": false,
+        "count": 0
+      },
+      "passed": false,
+      "screenshot": "tools/cenario-2-google-btn.png"
+    }
+  ],
+  "fatalError": "page.fill: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder*=\"nome\" i]')\u001b[22m\n",
+  "summary": {
+    "total": 2,
+    "passed": 0,
+    "failed": 2,
+    "consoleErrorsCount": 4,
+    "networkErrorsCount": 4
+  }
+}

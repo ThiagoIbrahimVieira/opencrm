@@ -1,0 +1,16 @@
+{
+  "scenario5": {
+    "passed": true,
+    "hasOrderCode": true,
+    "hasWaButton": true,
+    "hasQrSvg": true,
+    "hasMaskedCpf": true,
+    "toggleWorked": true,
+    "phoneText": "iPhone 16 Pro Max · 256GB  Titânio Deserto · Novo Lacrado  354829•••••1040 R$ 8.890,00",
+    "feedbackText": "Cliente localizado: Helena Vasconcelos",
+    "screenshots": [
+      "tools/cenario-5-checkout-ready.png",
+      "tools/cenario-5-comprovante-qr.png"
+    ]
+  }
+}
