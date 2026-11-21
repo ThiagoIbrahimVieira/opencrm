@@ -44,6 +44,35 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
+  // POST /api/auth/register-seller
+  app.post('/register-seller', async (req, reply) => {
+    const schema = z.object({
+      name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres.'),
+      email: z.string().email('E-mail inválido.'),
+      password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres.'),
+    });
+
+    const body = schema.parse(req.body);
+    const result = await AuthService.registerSeller(body);
+
+    reply.setCookie('access_token', result.accessToken, { ...cookieOptions, maxAge: 15 * 60 });
+    reply.setCookie('refresh_token', result.refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
+
+    return reply.status(201).send({
+      user: {
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        role: result.user.role,
+        avatarUrl: result.user.avatarUrl,
+        storeUnit: result.store?.name || '',
+      },
+      store: result.store,
+      accessToken: result.accessToken,
+      needsStoreAccess: result.needsStoreAccess,
+    });
+  });
+
   // POST /api/auth/login
   app.post('/login', async (req, reply) => {
     const schema = z.object({
@@ -169,6 +198,20 @@ export async function authRoutes(app: FastifyInstance) {
     reply.clearCookie('refresh_token', cookieOptions);
 
     return reply.send({ ok: true, message: 'Sessão encerrada com sucesso.' });
+  });
+
+  // POST /api/auth/revoke-sessions
+  app.post('/revoke-sessions', { preHandler: [authenticateToken] }, async (req, reply) => {
+    const userId = req.user!.userId;
+    const currentRefreshToken = (req.body as any)?.refreshToken || req.cookies?.refresh_token;
+
+    const result = await AuthService.revokeOtherSessions(userId, currentRefreshToken);
+
+    return reply.send({
+      ok: true,
+      message: 'Demais sessões revogadas com sucesso.',
+      revokedCount: result.revokedCount,
+    });
   });
 
   // GET /api/auth/me

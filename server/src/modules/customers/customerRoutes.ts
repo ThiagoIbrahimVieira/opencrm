@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant } from '../../db/prisma.js';
 import { authenticateToken } from '../../middlewares/authMiddleware.js';
-import { encryptPii, blindIndex, cleanDigits, maskCpf, maskPhone } from '../../utils/crypto.js';
+import { encryptPii, decryptPii, blindIndex, cleanDigits, maskCpf, maskPhone } from '../../utils/crypto.js';
 
 export async function customerRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authenticateToken);
@@ -36,6 +36,91 @@ export async function customerRoutes(app: FastifyInstance) {
     });
 
     return reply.send(customers.map(formatCustomerResponse));
+  });
+
+  // GET /api/customers/search?cpf=...&phone=...
+  app.get('/search', async (req, reply) => {
+    const querySchema = z.object({
+      cpf: z.string().optional(),
+      phone: z.string().optional(),
+    });
+
+    const query = querySchema.parse(req.query);
+
+    if (!query.cpf && !query.phone) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Informe ao menos CPF ou telefone para busca.',
+      });
+    }
+
+    const conditions: any[] = [];
+    let cleanCpf = '';
+
+    if (query.cpf) {
+      cleanCpf = cleanDigits(query.cpf);
+      if (cleanCpf) {
+        conditions.push({ cpfHmac: blindIndex(cleanCpf) });
+      }
+    }
+
+    if (query.phone) {
+      const cleanPhone = cleanDigits(query.phone);
+      if (cleanPhone) {
+        conditions.push({ phoneHmac: blindIndex(cleanPhone) });
+      }
+    }
+
+    if (conditions.length === 0) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Critério de busca inválido.',
+      });
+    }
+
+    const customer = await withTenant(req.user!.storeId, async (tx) => {
+      return await tx.customer.findFirst({
+        where: {
+          storeId: req.user!.storeId,
+          OR: conditions,
+        },
+      });
+    });
+
+    if (!customer) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Cliente não encontrado.',
+      });
+    }
+
+    let plainPhone = '';
+    if (customer.phoneEncrypted) {
+      try {
+        plainPhone = decryptPii(customer.phoneEncrypted);
+      } catch {
+        plainPhone = customer.phoneLast4 ? `(••) •••••-${customer.phoneLast4}` : '';
+      }
+    }
+
+    let plainCpf = cleanCpf;
+    if (!plainCpf && customer.cpfEncrypted) {
+      try {
+        plainCpf = cleanDigits(decryptPii(customer.cpfEncrypted));
+      } catch {
+        plainCpf = customer.cpfLast4 || '';
+      }
+    }
+
+    return reply.send({
+      id: customer.id,
+      name: customer.fullName,
+      phone: plainPhone,
+      cpfLast4: '***.***.***-' + plainCpf.slice(-2),
+    });
   });
 
   // POST /api/customers

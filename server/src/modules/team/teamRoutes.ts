@@ -29,6 +29,7 @@ export async function teamRoutes(app: FastifyInstance) {
       isActive: m.isActive,
       avatarUrl: m.user.avatarUrl,
       createdAt: m.createdAt,
+      status: m.user.passwordHash ? 'ACTIVE' : 'PENDING',
     }));
 
     return reply.send(formatted);
@@ -41,7 +42,7 @@ export async function teamRoutes(app: FastifyInstance) {
     const schema = z.object({
       name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres.'),
       email: z.string().email('E-mail corporativo inválido.'),
-      password: z.string().min(4, 'Senha deve ter no mínimo 4 caracteres.'),
+      password: z.string().min(4, 'Senha deve ter no mínimo 4 caracteres.').optional(),
       role: z.enum(['ADMIN', 'VENDEDOR']),
     });
 
@@ -55,7 +56,7 @@ export async function teamRoutes(app: FastifyInstance) {
       });
 
       if (!user) {
-        const passwordHash = await hashPassword(body.password);
+        const passwordHash = body.password ? await hashPassword(body.password) : null;
         user = await tx.user.create({
           data: {
             name: body.name.trim(),
@@ -93,6 +94,9 @@ export async function teamRoutes(app: FastifyInstance) {
       return membership;
     });
 
+    const status = created.user.passwordHash ? 'ACTIVE' : 'PENDING';
+    const inviteLink = `https://opencrm-ashy.vercel.app/?modo=cadastro&perfil=vendedor&email=${encodeURIComponent(created.user.email)}`;
+
     return reply.status(201).send({
       id: created.id,
       userId: created.userId,
@@ -102,6 +106,8 @@ export async function teamRoutes(app: FastifyInstance) {
       isActive: created.isActive,
       avatarUrl: created.user.avatarUrl,
       createdAt: created.createdAt,
+      status,
+      inviteLink,
     });
   });
 

@@ -1,7 +1,9 @@
 import dotenv from 'dotenv';
+import path from 'path';
 import { z } from 'zod';
 
 dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), 'server/.env') });
 
 const hex64Regex = /^[0-9a-fA-F]{64}$/;
 

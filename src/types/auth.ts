@@ -12,6 +12,7 @@ export interface AuthUser {
 export interface TeamMember extends AuthUser {
   active: boolean;
   createdAt: string;
+  isPendingInvite?: boolean;
 }
 
 export interface LoginCredentials {

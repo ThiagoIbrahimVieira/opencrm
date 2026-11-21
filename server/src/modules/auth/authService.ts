@@ -5,6 +5,7 @@ import { prisma } from '../../db/prisma.js';
 import { env } from '../../config/env.js';
 import { hashPassword, verifyPassword, hashToken } from '../../utils/crypto.js';
 import { AuthTokenPayload, UserRole } from '../../middlewares/authMiddleware.js';
+import { AppError } from '../../utils/errors.js';
 
 const googleClient = new OAuth2Client();
 
@@ -144,31 +145,44 @@ export class AuthService {
       where: { email },
       include: {
         memberships: {
-          where: { isActive: true },
           include: { store: true },
         },
       },
     });
 
-    if (!user || !user.passwordHash) {
-      throw new Error('Credenciais não reconhecidas no sistema.');
+    if (!user) {
+      throw new AppError('Essa conta não existe.', 404);
+    }
+
+    if (!user.passwordHash) {
+      if (user.googleSub) {
+        throw new AppError('Esta conta usa acesso pelo Google.', 401);
+      }
+      if (user.memberships.length > 0) {
+        throw new AppError(
+          'Você já tem um convite de loja! Crie sua senha na aba Criar Conta ou entre com Google para ativar.',
+          401
+        );
+      }
+      throw new AppError('Esta conta usa acesso pelo Google.', 401);
     }
 
     const isValidPassword = await verifyPassword(user.passwordHash, password);
     if (!isValidPassword) {
-      throw new Error('Senha incorreta.');
+      throw new AppError('Senha incorreta.', 401);
     }
 
     // Identifica a loja ativa
-    let activeMembership = user.memberships[0];
+    const activeMemberships = user.memberships.filter((m) => m.isActive);
+    let activeMembership = activeMemberships[0];
     if (credentials.storeSlug) {
-      const match = user.memberships.find((m) => m.store.slug === credentials.storeSlug);
+      const match = activeMemberships.find((m) => m.store.slug === credentials.storeSlug);
       if (match) activeMembership = match;
     }
 
     const activeStoreId = activeMembership?.storeId || null;
     const activeRole = (activeMembership?.role as UserRole) || null;
-    const needsOnboarding = user.memberships.length === 0;
+    const needsOnboarding = activeMemberships.length === 0;
 
     const payload: AuthTokenPayload = {
       userId: user.id,
@@ -207,6 +221,131 @@ export class AuthService {
       refreshToken,
       needsOnboarding,
     };
+  }
+
+  /**
+   * Cadastro de Vendedor (Fase 2).
+   * Normaliza email, cria ou atualiza usuário com senha e ativa vínculos de convite pendentes.
+   */
+  static async registerSeller(data: { name: string; email: string; password: string }) {
+    const email = data.email.trim().toLowerCase();
+    const name = data.name.trim();
+    const password = data.password.trim();
+
+    const passwordHash = await hashPassword(password);
+
+    return await prisma.$transaction(async (tx) => {
+      let user = await tx.user.findUnique({
+        where: { email },
+        include: {
+          memberships: {
+            include: { store: true },
+          },
+        },
+      });
+
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            name,
+            email,
+            passwordHash,
+          },
+          include: {
+            memberships: {
+              include: { store: true },
+            },
+          },
+        });
+      } else {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            name: name || user.name,
+            passwordHash,
+          },
+          include: {
+            memberships: {
+              include: { store: true },
+            },
+          },
+        });
+      }
+
+      // Se houver convites de loja para este usuário, ativa os vínculos
+      const hasMemberships = user.memberships.length > 0;
+      if (hasMemberships) {
+        await tx.storeMembership.updateMany({
+          where: { userId: user.id },
+          data: { isActive: true },
+        });
+      }
+
+      const activeMembership = user.memberships[0] || null;
+      const activeStoreId = activeMembership?.storeId || null;
+      const activeRole = (activeMembership?.role as UserRole) || 'VENDEDOR';
+      const needsStoreAccess = !hasMemberships;
+
+      const payload: AuthTokenPayload = {
+        userId: user.id,
+        activeStoreId,
+        storeId: activeStoreId || '',
+        role: activeRole,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+      };
+
+      const familyId = crypto.randomUUID();
+      const accessToken = this.signAccessToken(payload);
+      const refreshToken = this.signRefreshToken(payload, familyId);
+
+      await tx.refreshToken.create({
+        data: {
+          userId: user.id,
+          storeId: activeStoreId,
+          familyId,
+          tokenHash: hashToken(refreshToken),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatarUrl: user.avatarUrl,
+          role: activeRole,
+        },
+        store: activeMembership?.store || null,
+        accessToken,
+        refreshToken,
+        needsStoreAccess,
+      };
+    });
+  }
+
+  /**
+   * Revoga todas as sessões ativas do usuário (exceto a sessão atual se fornecida).
+   */
+  static async revokeOtherSessions(userId: string, currentRefreshToken?: string) {
+    const whereClause: any = {
+      userId,
+      revokedAt: null,
+    };
+
+    if (currentRefreshToken) {
+      const currentHashed = hashToken(currentRefreshToken);
+      whereClause.tokenHash = { not: currentHashed };
+    }
+
+    const result = await prisma.refreshToken.updateMany({
+      where: whereClause,
+      data: { revokedAt: new Date() },
+    });
+
+    return { revokedCount: result.count };
   }
 
   /**

@@ -1,9 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd server && npx prisma generate && cd .. && npm run build",
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://opencrm-api.onrender.com/api/:path*"
+      "destination": "/api"
     },
     {
       "source": "/(.*)",

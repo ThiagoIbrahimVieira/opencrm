@@ -314,12 +314,12 @@ export function CheckoutView({
               value={customerId}
               creatable={false}
               placeholder="Selecione um cliente..."
-              searchPlaceholder="Buscar cliente por nome, e-mail, telefone ou tag..."
+              searchPlaceholder="Buscar cliente por nome, CPF (final), telefone ou tag..."
               options={customers.map((cu) => ({
                 value: cu.id,
                 label: cu.name,
-                sublabel: `${cu.city} · ${cu.email}`,
-                searchKeywords: `${cu.phone} ${cu.phone.replace(/\D/g, '')} ${cu.tags.join(' ')}`,
+                sublabel: `${cu.city} · ${cu.email} · CPF final ${cu.cpfLast4 || (cu.cpf ? cu.cpf.slice(-4) : '••••')}`,
+                searchKeywords: `${cu.phone} ${cu.phone.replace(/\D/g, '')} ${cu.cpfLast4 || ''} ${(cu.cpf || '').replace(/\D/g, '')} ${cu.tags.join(' ')}`,
               }))}
               onChange={setCustomerId}
             />

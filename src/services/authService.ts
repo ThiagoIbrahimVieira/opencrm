@@ -10,6 +10,12 @@ export interface RegisterStoreInput {
   templateConfig?: any;
 }
 
+export interface RegisterSellerInput {
+  name: string;
+  email: string;
+  password?: string;
+}
+
 export interface AuthStoreState {
   currentUser: AuthUser | null;
   teamMembers: TeamMember[];
@@ -26,6 +32,7 @@ const INITIAL_TEAM: TeamMember[] = [
     initials: 'TV',
     storeUnit: 'Loja Jardins',
     active: true,
+    isPendingInvite: false,
     createdAt: '2024-03-10',
   },
   {
@@ -36,6 +43,7 @@ const INITIAL_TEAM: TeamMember[] = [
     initials: 'CR',
     storeUnit: 'Loja Jardins',
     active: true,
+    isPendingInvite: false,
     createdAt: '2025-01-18',
   },
   {
@@ -46,6 +54,7 @@ const INITIAL_TEAM: TeamMember[] = [
     initials: 'MP',
     storeUnit: 'Loja Jardins',
     active: true,
+    isPendingInvite: false,
     createdAt: '2025-09-04',
   },
 ];
@@ -96,7 +105,6 @@ export class AuthService {
 
   /**
    * Authenticates an active internal team member by email and password.
-   * No public self-registration exists; accounts are managed strictly by ADMIN.
    */
   login(credentials: LoginCredentials): AuthUser {
     const email = credentials.email.trim().toLowerCase();
@@ -187,6 +195,7 @@ export class AuthService {
             initials: sessionUser.initials,
             storeUnit: sessionUser.storeUnit,
             active: true,
+            isPendingInvite: false,
             createdAt: new Date().toISOString().split('T')[0],
           };
 
@@ -200,11 +209,21 @@ export class AuthService {
           return sessionUser;
         }
       } catch (err: any) {
+        const msg = String(err?.message || '');
+        if (/não existe|not found|usuário não encontrado|credenciais não reconhecidas/i.test(msg)) {
+          throw new Error('Essa conta não existe.');
+        }
+        if (/senha incorreta|invalid password|senha inválida/i.test(msg)) {
+          throw new Error('Senha incorreta.');
+        }
+        if (/google|oauth|gsi/i.test(msg)) {
+          throw new Error('Esta conta usa acesso pelo Google.');
+        }
         throw new Error(err.message || 'Credenciais não reconhecidas. Verifique e-mail e senha.');
       }
     }
 
-    throw new Error('Credenciais não reconhecidas. Verifique e-mail e senha ou crie uma conta gratuita.');
+    throw new Error('Essa conta não existe.');
   }
 
   /**
@@ -287,6 +306,7 @@ export class AuthService {
       initials: user.initials,
       storeUnit: user.storeUnit,
       active: true,
+      isPendingInvite: false,
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -298,6 +318,130 @@ export class AuthService {
     this.notify();
 
     return user;
+  }
+
+  /**
+   * Registers a seller account seeking to join an existing store.
+   */
+  async registerSeller(input: RegisterSellerInput): Promise<AuthUser> {
+    const cleanName = input.name.trim();
+    const cleanEmail = input.email.trim().toLowerCase();
+    const password = input.password?.trim() || 'password123';
+
+    if (!cleanName || !cleanEmail || !cleanEmail.includes('@')) {
+      throw new Error('Informe seu nome completo e um e-mail válido.');
+    }
+
+    if (password.length < 6) {
+      throw new Error('A senha deve conter no mínimo 6 caracteres.');
+    }
+
+    let user: AuthUser;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await apiRequest('/api/auth/register-seller', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: cleanName,
+            email: cleanEmail,
+            password,
+          }),
+        });
+
+        if (res?.user) {
+          user = {
+            id: res.user.id,
+            name: res.user.name,
+            email: res.user.email,
+            role: 'VENDEDOR',
+            initials: buildInitials(res.user.name),
+            storeUnit: res.store?.name || 'Aguardando vínculo',
+          };
+        } else {
+          throw new Error('Resposta inesperada do servidor.');
+        }
+      } catch (err: any) {
+        console.warn('Falha na API de registro de vendedor, utilizando fallback:', err);
+        user = {
+          id: `usr-seller-${Date.now()}`,
+          name: cleanName,
+          email: cleanEmail,
+          role: 'VENDEDOR',
+          initials: buildInitials(cleanName),
+          storeUnit: 'Aguardando vínculo',
+        };
+      }
+    } else {
+      user = {
+        id: `usr-seller-${Date.now()}`,
+        name: cleanName,
+        email: cleanEmail,
+        role: 'VENDEDOR',
+        initials: buildInitials(cleanName),
+        storeUnit: 'Aguardando vínculo',
+      };
+    }
+
+    const member: TeamMember = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: 'VENDEDOR',
+      initials: user.initials,
+      storeUnit: user.storeUnit,
+      active: true,
+      isPendingInvite: true,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    this.state = {
+      ...this.state,
+      currentUser: user,
+      teamMembers: [...this.state.teamMembers.filter((m) => m.email !== user.email), member],
+    };
+    this.notify();
+
+    return user;
+  }
+
+  /**
+   * Rechecks current user session and stores via backend.
+   */
+  async refreshUserAndStores(): Promise<{ user: AuthUser | null; storesCount: number }> {
+    if (typeof window === 'undefined') {
+      return { user: this.state.currentUser, storesCount: 0 };
+    }
+    try {
+      const meData = await apiRequest('/api/auth/me');
+      let storesCount = 0;
+      try {
+        const storesData = await apiRequest('/api/stores/mine');
+        if (Array.isArray(storesData)) {
+          storesCount = storesData.length;
+        }
+      } catch {}
+
+      if (meData?.user) {
+        const updatedUser: AuthUser = {
+          id: meData.user.id,
+          name: meData.user.name,
+          email: meData.user.email,
+          role: meData.user.role || this.state.currentUser?.role || 'VENDEDOR',
+          initials: buildInitials(meData.user.name),
+          storeUnit: meData.store?.name || (storesCount > 0 ? 'Loja Ativa' : 'Aguardando vínculo'),
+        };
+        this.state = {
+          ...this.state,
+          currentUser: updatedUser,
+        };
+        this.notify();
+        return { user: updatedUser, storesCount };
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar sessão e lojas:', err);
+    }
+    return { user: this.state.currentUser, storesCount: 0 };
   }
 
   /**
@@ -365,25 +509,26 @@ export class AuthService {
   }
 
   async switchStore(storeId: string): Promise<void> {
-    if (typeof window === 'undefined') return;
-    try {
-      const data = await apiRequest('/api/stores/switch', {
-        method: 'POST',
-        body: JSON.stringify({ storeId }),
-      });
-      if (data?.store && this.state.currentUser) {
-        this.state = {
-          ...this.state,
-          currentUser: {
-            ...this.state.currentUser,
-            role: data.role || this.state.currentUser.role,
-            storeUnit: data.store.name,
-          },
-        };
-        this.notify();
+    if (typeof window !== 'undefined') {
+      try {
+        const data = await apiRequest('/api/stores/switch', {
+          method: 'POST',
+          body: JSON.stringify({ storeId }),
+        });
+        if (data?.store && this.state.currentUser) {
+          this.state = {
+            ...this.state,
+            currentUser: {
+              ...this.state.currentUser,
+              role: data.role || this.state.currentUser.role,
+              storeUnit: data.store.name,
+            },
+          };
+          this.notify();
+        }
+      } catch {
+        // Ignora falha de rede em dev offline
       }
-    } catch {
-      // Ignora falha de rede em dev offline
     }
   }
 
@@ -426,7 +571,7 @@ export class AuthService {
   /**
    * Admin-only team member provisioning.
    */
-  addTeamMember(input: { name: string; email: string; role: UserRole }): TeamMember {
+  addTeamMember(input: { name: string; email: string; role: UserRole; password?: string }): TeamMember {
     if (!this.isAdmin()) {
       throw new Error('Apenas administradores podem gerenciar a equipe.');
     }
@@ -447,8 +592,9 @@ export class AuthService {
       email: cleanEmail,
       role: input.role,
       initials: buildInitials(cleanName),
-      storeUnit: 'Loja Jardins',
+      storeUnit: this.state.currentUser?.storeUnit || 'Loja Jardins',
       active: true,
+      isPendingInvite: input.role === 'VENDEDOR',
       createdAt: '2026-11-20',
     };
 
@@ -461,7 +607,7 @@ export class AuthService {
     if (typeof window !== 'undefined') {
       apiRequest('/api/team', {
         method: 'POST',
-        body: JSON.stringify({ ...input, password: 'password123' }),
+        body: JSON.stringify({ ...input, password: input.password || 'password123' }),
       }).catch(() => {});
     }
 
