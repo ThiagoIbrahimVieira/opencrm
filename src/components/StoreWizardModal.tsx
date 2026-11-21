@@ -530,7 +530,7 @@ export function StoreWizardModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar assistente de nova loja"
-                className="p-1.5 rounded-lg text-[#6E6B63] hover:bg-[#EFECE6] hover:text-[#1F1E1B] cursor-pointer"
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-[#6E6B63] hover:bg-[#EFECE6] hover:text-[#1F1E1B] cursor-pointer"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
@@ -541,9 +541,9 @@ export function StoreWizardModal({
           <div className="grid grid-cols-3 gap-2">
             {(
               [
-                { num: 1, title: '1. Identidade da Loja' },
-                { num: 2, title: '2. Módulos & Rótulos' },
-                { num: 3, title: '3. Campos & Preview' },
+                { num: 1, title: '1. Identidade da Loja', mobileTitle: '1. Identidade' },
+                { num: 2, title: '2. Módulos & Rótulos', mobileTitle: '2. Módulos' },
+                { num: 3, title: '3. Campos & Preview', mobileTitle: '3. Campos' },
               ] as const
             ).map((item) => {
               const isCurrent = step === item.num;
@@ -569,7 +569,7 @@ export function StoreWizardModal({
                       setStep(item.num);
                     }
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors text-left cursor-pointer ${
+                  className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-medium transition-colors text-left cursor-pointer ${
                     isCurrent
                       ? 'bg-[#F4F6F1] border-[#4F5A47] text-[#1F1E1B]'
                       : isDone
@@ -586,7 +586,8 @@ export function StoreWizardModal({
                   >
                     {isDone ? <Check className="h-3 w-3 stroke-[2.5]" /> : item.num}
                   </span>
-                  <span className="truncate">{item.title}</span>
+                  <span className="truncate hidden sm:inline">{item.title}</span>
+                  <span className="truncate sm:hidden">{item.mobileTitle}</span>
                 </button>
               );
             })}

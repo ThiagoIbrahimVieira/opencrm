@@ -172,6 +172,7 @@ export interface Order {
 export interface PublicWarrantyViewData {
   publicToken: string;
   orderCode: string;
+  storeName?: string;
   deviceBrand: string;
   deviceModel: string;
   deviceStorage: string;

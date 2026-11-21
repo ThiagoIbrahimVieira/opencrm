@@ -142,6 +142,17 @@ describe('OpenCRM AppSec, RBAC & API Integration Suite', () => {
       expect(res.json().message).toContain('Termo de garantia não localizado');
     });
 
+    it('should return 404 cleanly when public warranty token has invalid non-UUID format (prevents DB syntax 500 error)', async () => {
+      const invalidToken = 'token-teste-invalido-123';
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/public/warranty/${invalidToken}`,
+      });
+
+      expect(res.statusCode).toBe(404);
+      expect(res.json().message).toContain('Termo de garantia não localizado');
+    });
+
     it('should encrypt PII with AES-256-GCM and never store plaintext CPF', () => {
       const cpf = '394.821.508-42';
       const encrypted = encryptPii(cpf);

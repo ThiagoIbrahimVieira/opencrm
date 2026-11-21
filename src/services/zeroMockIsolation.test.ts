@@ -205,3 +205,63 @@ test('Clean Template Builder Defaults: CUSTOM_SCRATCH_SEGMENT starts with 0 prim
   assert.ok(!serialized.includes('raca'), 'Must not include raca references by default');
   assert.ok(!serialized.includes('microchip'), 'Must not include microchip references by default');
 });
+
+test('Demo Mode: Custom stores created in demo mode are registered, switchable and isolated', () => {
+  const svc = new AuraCellService();
+  svc.setDemoMode(true);
+  const initialCount = svc.listStores().length;
+
+  const newStore = svc.createStoreFromTemplate({
+    id: 'store-oficina-pro',
+    storeName: 'Oficina Pro Auto Peças',
+    segment: 'Oficina Mecânica',
+    description: 'Workspace de autopeças',
+    labels: {
+      primaryTabName: 'Peças & Componentes',
+      secondaryTabName: 'Óleos & Lubrificantes',
+      primaryItemSingular: 'Peça',
+      secondaryItemSingular: 'Óleo',
+      orderActionLabel: 'Balcão & O.S.',
+      crossSellTitle: 'Itens Recomendados',
+    },
+    features: {
+      hasSerializedItems: false,
+      hasWarrantyQr: true,
+      hasTradeIn: false,
+      hasEntryChecklist: true,
+      hasCompatibilityCrossSell: true,
+      hasExpirationDate: false,
+    },
+    primaryFields: [
+      { id: 'f1', key: 'veiculo', label: 'Veículo', type: 'text', required: true, validator: 'none' },
+    ],
+    secondaryFields: [],
+    defaultChecklist: ['Peça inspecionada'],
+  });
+
+  assert.equal(svc.listStores().length, initialCount + 1);
+  assert.equal(svc.getActiveStoreId(), newStore.storeId);
+  assert.equal(svc.getActiveTemplate().storeName, 'Oficina Pro Auto Peças');
+  assert.equal(svc.getActiveTemplate().labels.primaryTabName, 'Peças & Componentes');
+  assert.equal(svc.listSmartphones().length, 0, 'New custom store must start completely empty');
+
+  // Switch back to AuraCell
+  svc.switchStore('store-auracell');
+  assert.equal(svc.getActiveStoreId(), 'store-auracell');
+  assert.equal(svc.getActiveTemplate().storeName, 'AuraCell');
+
+  // Switch back to Oficina Pro
+  svc.switchStore(newStore.storeId);
+  assert.equal(svc.getActiveStoreId(), newStore.storeId);
+});
+
+test('AuthService: switchStore in demo mode does not call backend /api/stores/switch', async () => {
+  const auth = new AuthService(null);
+  auth.loginDemo('ADMIN');
+  assert.equal(auth.isDemoMode(), true);
+
+  // Calling switchStore with non-UUID demo ID must succeed cleanly without network exception
+  await assert.doesNotReject(async () => {
+    await auth.switchStore('template-food');
+  });
+});

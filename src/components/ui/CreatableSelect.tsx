@@ -72,15 +72,17 @@ export function CreatableSelect({
     if (!open) return;
     setHighlightIndex(0);
     const timer = setTimeout(() => inputRef.current?.focus(), 20);
-    const handleOutside = (e: MouseEvent) => {
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
     return () => {
       clearTimeout(timer);
       document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
     };
   }, [open]);
 

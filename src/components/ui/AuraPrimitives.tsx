@@ -460,13 +460,13 @@ export function CommandSearchModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar aparelho, IMEI, SKU de acessório ou cliente..."
-            className="w-full text-sm text-[#1F1E1B] placeholder:text-[#9A968D] focus:outline-none"
+            className="w-full text-[16px] md:text-sm text-[#1F1E1B] placeholder:text-[#9A968D] focus:outline-none"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar busca"
-            className="text-xs text-[#6E6B63] bg-[#F4F2EC] border border-[#E5E2D9] rounded-md px-1.5 py-0.5 hover:text-[#1F1E1B] cursor-pointer"
+            className="text-xs text-[#6E6B63] bg-[#F4F2EC] border border-[#E5E2D9] rounded-md px-2.5 py-1 min-h-[36px] hover:text-[#1F1E1B] cursor-pointer shrink-0"
           >
             ESC
           </button>

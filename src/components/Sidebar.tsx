@@ -145,7 +145,7 @@ export function Sidebar({
             type="button"
             onClick={onCloseMobile}
             aria-label="Fechar menu"
-            className="lg:hidden p-1.5 rounded-lg text-[#6E6B63] hover:bg-[#E2DED4] cursor-pointer shrink-0"
+            className="lg:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-[#6E6B63] hover:bg-[#E2DED4] cursor-pointer shrink-0"
           >
             <X className="h-4 w-4" />
           </button>
@@ -243,7 +243,7 @@ export function Sidebar({
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span>Busca rápida...</span>
           </span>
-          <kbd className="text-[11px] font-mono text-[#6E6B63] bg-[#ECEAE2] border border-[#D8D4C9] rounded px-1.5 py-0.5 shrink-0">
+          <kbd className="hidden sm:inline-flex text-[11px] font-mono text-[#6E6B63] bg-[#ECEAE2] border border-[#D8D4C9] rounded px-1.5 py-0.5 shrink-0">
             ⌘K
           </kbd>
         </button>
@@ -605,7 +605,7 @@ export function Sidebar({
 
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-50 lg:hidden bg-[#1F1E1B]/35 backdrop-blur-[2px] flex no-print"
+          className="fixed inset-0 z-[80] lg:hidden bg-[#1F1E1B]/35 backdrop-blur-[2px] flex no-print"
           onClick={onCloseMobile}
         >
           <div className="h-full" onClick={(e) => e.stopPropagation()}>

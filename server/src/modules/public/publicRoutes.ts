@@ -4,8 +4,19 @@ import { prisma } from '../../db/prisma.js';
 export async function publicRoutes(app: FastifyInstance) {
   // GET /api/public/warranty/:publicToken
   // Endpoint público via QR Code (Zero autenticação, Rate Limited, Whitelist estrita LGPD)
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   app.get('/warranty/:publicToken', async (req, reply) => {
     const { publicToken } = req.params as { publicToken: string };
+
+    // Validação preventiva de sintaxe UUID para evitar erro 500 no PostgreSQL
+    if (!publicToken || !UUID_REGEX.test(publicToken)) {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Termo de garantia não localizado para este QR Code.',
+      });
+    }
 
     const order = await prisma.order.findUnique({
       where: { publicWarrantyToken: publicToken },

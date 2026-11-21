@@ -226,19 +226,40 @@ function AppInner() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [currentUser]);
 
+  const [publicWarrantyLoading, setPublicWarrantyLoading] = React.useState(false);
+
+  const handleClosePublicWarranty = React.useCallback(() => {
+    setPublicWarrantyToken(null);
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/garantia')) {
+      window.history.pushState(null, '', '/');
+    }
+  }, []);
+
   // Carrega dados da garantia pública via API quando houver token na URL
   React.useEffect(() => {
     if (publicWarrantyToken) {
+      setPublicWarrantyLoading(true);
       fetch(`/api/public/warranty/${publicWarrantyToken}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (data) setApiWarrantyData(data);
+          else setApiWarrantyData(null);
         })
-        .catch(() => {});
+        .catch(() => {
+          setApiWarrantyData(null);
+        })
+        .finally(() => {
+          setPublicWarrantyLoading(false);
+        });
     } else {
       setApiWarrantyData(null);
+      setPublicWarrantyLoading(false);
     }
   }, [publicWarrantyToken]);
+
+  const publicWarrantyData =
+    apiWarrantyData ||
+    (publicWarrantyToken ? crmService.getPublicWarrantyByToken(publicWarrantyToken) : null);
 
 
 
@@ -606,6 +627,12 @@ function AppInner() {
           initialStoreName={wizardInitialStoreName}
           initialStartMode={wizardInitialStartMode}
         />
+        <PublicWarrantyModal
+          data={publicWarrantyData}
+          loading={publicWarrantyLoading}
+          token={publicWarrantyToken}
+          onClose={handleClosePublicWarranty}
+        />
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       </>
     );
@@ -626,6 +653,12 @@ function AppInner() {
             pushToast('Perfil definido como Vendedor', 'Aguardando vinculação com sua loja.');
           }}
           onLogout={handleLogout}
+        />
+        <PublicWarrantyModal
+          data={publicWarrantyData}
+          loading={publicWarrantyLoading}
+          token={publicWarrantyToken}
+          onClose={handleClosePublicWarranty}
         />
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       </>
@@ -702,10 +735,6 @@ function AppInner() {
   const selectedSmartphoneDetail = selectedSmartphoneDetailId
     ? (store.smartphones.find((s) => s.id === selectedSmartphoneDetailId) ?? null)
     : null;
-
-  const publicWarrantyData =
-    apiWarrantyData ||
-    (publicWarrantyToken ? crmService.getPublicWarrantyByToken(publicWarrantyToken) : null);
 
   const handleCreateSmartphone = (input: CreateSmartphoneInput) => {
     const created = crmService.createSmartphone({
@@ -1196,7 +1225,9 @@ function AppInner() {
 
       <PublicWarrantyModal
         data={publicWarrantyData}
-        onClose={() => setPublicWarrantyToken(null)}
+        loading={publicWarrantyLoading}
+        token={publicWarrantyToken}
+        onClose={handleClosePublicWarranty}
       />
 
       <CommandSearchModal

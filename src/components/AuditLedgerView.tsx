@@ -77,8 +77,8 @@ export function AuditLedgerView({ auditLogs, stockLedger }: AuditLedgerViewProps
           </div>
         </div>
 
-        {/* Clean Underlined Tabs */}
-        <div className="flex items-center gap-7 border-b border-[#DFDDD3]" role="tablist">
+        {/* Clean Underlined Tabs with Horizontal Overflow Support */}
+        <div className="flex items-center gap-7 border-b border-[#DFDDD3] overflow-x-auto no-scrollbar" role="tablist">
           <button
             type="button"
             role="tab"

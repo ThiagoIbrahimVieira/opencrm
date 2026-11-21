@@ -160,11 +160,35 @@ export class AuraCellService {
     if (isDemoMode) {
       this.stores = buildInitialWorkspaces(initialState);
       this.activeStoreId = AURACELL_TEMPLATE.id;
+      this.hydrateCustomDemoStores();
     } else {
       this.stores = new Map<string, StoreWorkspace>();
       this.activeStoreId = '';
     }
     this.rebuildSnapshot();
+  }
+
+  private hydrateCustomDemoStores(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('opencrm_demo_custom_stores');
+      if (stored) {
+        const customStores = JSON.parse(stored);
+        if (Array.isArray(customStores)) {
+          for (const s of customStores) {
+            if (s && s.storeId && s.template && s.data) {
+              this.stores.set(s.storeId, s);
+            }
+          }
+        }
+      }
+      const activeId = localStorage.getItem('opencrm_demo_active_store_id');
+      if (activeId && this.stores.has(activeId)) {
+        this.activeStoreId = activeId;
+      }
+    } catch {
+      // ignore
+    }
   }
 
   getIsDemoMode(): boolean {
@@ -176,6 +200,7 @@ export class AuraCellService {
     if (enabled) {
       this.stores = buildInitialWorkspaces();
       this.activeStoreId = AURACELL_TEMPLATE.id;
+      this.hydrateCustomDemoStores();
     } else {
       this.stores = new Map<string, StoreWorkspace>();
       this.activeStoreId = '';
@@ -187,6 +212,12 @@ export class AuraCellService {
     this.isDemoMode = false;
     this.stores = new Map<string, StoreWorkspace>();
     this.activeStoreId = '';
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('opencrm_demo_custom_stores');
+        localStorage.removeItem('opencrm_demo_active_store_id');
+      } catch {}
+    }
     this.notify();
   }
 
@@ -353,6 +384,13 @@ export class AuraCellService {
       throw new Error('Loja não encontrada no workspace.');
     }
     this.activeStoreId = target.storeId;
+    if (this.isDemoMode && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('opencrm_demo_active_store_id', target.storeId);
+      } catch {
+        // ignore
+      }
+    }
     this.notify();
     return { storeId: target.storeId, template: target.template };
   }
@@ -388,6 +426,29 @@ export class AuraCellService {
       data: seed,
     });
     this.activeStoreId = candidateId;
+
+    if (this.isDemoMode && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('opencrm_demo_custom_stores');
+        const customStores: any[] = stored ? JSON.parse(stored) : [];
+        const existingIdx = customStores.findIndex((s) => s.storeId === candidateId);
+        const storeEntry = {
+          storeId: candidateId,
+          template: normalizedTemplate,
+          data: seed,
+        };
+        if (existingIdx >= 0) {
+          customStores[existingIdx] = storeEntry;
+        } else {
+          customStores.push(storeEntry);
+        }
+        localStorage.setItem('opencrm_demo_custom_stores', JSON.stringify(customStores));
+        localStorage.setItem('opencrm_demo_active_store_id', candidateId);
+      } catch {
+        // ignore localStorage quota/disabled errors
+      }
+    }
+
     this.notify();
 
     if (!this.isDemoMode && typeof window !== 'undefined') {

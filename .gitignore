@@ -42,6 +42,8 @@ client_secret*.json
 
 # Logs & System Files
 *.log
+tools/*.png
+tools/*.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

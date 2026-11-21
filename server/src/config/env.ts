@@ -5,6 +5,15 @@ import { z } from 'zod';
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), 'server/.env') });
 
+if (process.env.NODE_ENV === 'test') {
+  process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/test';
+  process.env.DIRECT_URL = process.env.DIRECT_URL || 'postgresql://test:test@localhost:5432/test';
+  process.env.JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || '01234567890123456789012345678901';
+  process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || '01234567890123456789012345678901';
+  process.env.PII_ENCRYPTION_KEY_HEX = process.env.PII_ENCRYPTION_KEY_HEX || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  process.env.PII_HMAC_KEY_HEX = process.env.PII_HMAC_KEY_HEX || '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+}
+
 const hex64Regex = /^[0-9a-fA-F]{64}$/;
 
 const envSchema = z.object({

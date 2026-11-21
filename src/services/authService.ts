@@ -601,6 +601,9 @@ export class AuthService {
   }
 
   async switchStore(storeId: string): Promise<void> {
+    if (this.isDemoMode()) {
+      return;
+    }
     if (typeof window !== 'undefined') {
       try {
         const data = await apiRequest('/api/stores/switch', {
