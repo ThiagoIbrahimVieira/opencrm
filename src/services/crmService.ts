@@ -21,6 +21,7 @@ import {
   CreateSmartphoneInput,
   Customer,
   CustomerActivity,
+  CustomerSearchResult,
   DeviceModel,
   DynamicCatalog,
   Order,
@@ -499,6 +500,44 @@ export class AuraCellService {
           ? { ...c, activities: [newActivity, ...c.activities] }
           : c
       ),
+    };
+  }
+
+  /**
+   * Searches a customer by exact CPF or Phone via Blind Index HMAC (/api/customers/search).
+   */
+  async searchCustomer(params: {
+    cpf?: string;
+    phone?: string;
+  }): Promise<CustomerSearchResult | null> {
+    const queryParts: string[] = [];
+    if (params.cpf) queryParts.push(`cpf=${encodeURIComponent(params.cpf)}`);
+    if (params.phone) queryParts.push(`phone=${encodeURIComponent(params.phone)}`);
+    if (queryParts.length === 0) return null;
+
+    if (typeof window !== 'undefined') {
+      try {
+        return await apiRequest<CustomerSearchResult>(`/api/customers/search?${queryParts.join('&')}`);
+      } catch (err: any) {
+        if (err.statusCode === 404 || err.response?.statusCode === 404) return null;
+        throw err;
+      }
+    }
+
+    const cleanCpf = params.cpf ? cleanDigits(params.cpf) : '';
+    const cleanPhone = params.phone ? cleanDigits(params.phone) : '';
+    const match = this.state.customers.find((c) => {
+      if (cleanCpf && cleanDigits(c.cpf) === cleanCpf) return true;
+      if (cleanPhone && cleanDigits(c.phone) === cleanPhone) return true;
+      return false;
+    });
+
+    if (!match) return null;
+    return {
+      id: match.id,
+      name: match.name,
+      phone: match.phone,
+      cpfLast4: `***.***.***-${cleanDigits(match.cpf).slice(-2)}`,
     };
   }
 

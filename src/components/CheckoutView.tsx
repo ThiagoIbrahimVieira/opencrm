@@ -25,6 +25,7 @@ import { StoreTemplate } from '../types/template';
 import { formatCurrencyBRL, formatDateBR, maskIMEI } from '../utils/imei';
 import { AuraButton, StatusBadge } from './ui/AuraPrimitives';
 import { CreatableSelect } from './ui/CreatableSelect';
+import { apiRequest } from '../services/apiClient';
 
 interface CheckoutViewProps {
   template: StoreTemplate;
@@ -87,6 +88,51 @@ export function CheckoutView({
   const [phoneSearch, setPhoneSearch] = React.useState('');
   const [accessorySearch, setAccessorySearch] = React.useState('');
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  const [cpfSearchQuery, setCpfSearchQuery] = React.useState('');
+  const [cpfSearching, setCpfSearching] = React.useState(false);
+  const [cpfSearchFeedback, setCpfSearchFeedback] = React.useState<string | null>(null);
+
+  const handleSearchCpf = async () => {
+    const clean = cpfSearchQuery.replace(/\D/g, '');
+    if (!clean) {
+      setCpfSearchFeedback('Digite ao menos os dígitos do CPF para buscar.');
+      return;
+    }
+    setCpfSearchFeedback(null);
+    setCpfSearching(true);
+
+    // 1. Busca primeiro nos clientes em memória
+    const localMatch = customers.find((c) => {
+      const cDigits = (c.cpf || '').replace(/\D/g, '');
+      return cDigits.includes(clean) || (c.cpfLast4 && clean.endsWith(c.cpfLast4));
+    });
+
+    if (localMatch) {
+      setCustomerId(localMatch.id);
+      setCpfSearchFeedback(`Cliente localizado: ${localMatch.name}`);
+      setCpfSearching(false);
+      return;
+    }
+
+    // 2. Consulta a API /api/customers/search?cpf=...
+    try {
+      const res = await apiRequest(`/api/customers/search?cpf=${encodeURIComponent(clean)}`);
+      if (res?.customer) {
+        setCustomerId(res.customer.id);
+        setCpfSearchFeedback(`Cliente localizado via API: ${res.customer.name}`);
+      } else if (Array.isArray(res) && res.length > 0) {
+        setCustomerId(res[0].id);
+        setCpfSearchFeedback(`Cliente localizado via API: ${res[0].name}`);
+      } else {
+        setCpfSearchFeedback('Nenhum cliente cadastrado com este CPF.');
+      }
+    } catch {
+      setCpfSearchFeedback('Nenhum cliente localizado com este CPF.');
+    } finally {
+      setCpfSearching(false);
+    }
+  };
 
   // Reset checkout selections when switching stores
   React.useEffect(() => {
@@ -307,6 +353,45 @@ export function CheckoutView({
               <h2 className="text-sm font-semibold text-[#1F1E1B]">
                 Selecionar Cliente
               </h2>
+            </div>
+
+            {/* Campo de busca rápida de cliente por CPF com botão Buscar */}
+            <div className="space-y-1.5">
+              <div className="flex gap-2 items-center">
+                <div className="relative flex-1">
+                  <Search className="h-3.5 w-3.5 text-[#8C887E] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={cpfSearchQuery}
+                    onChange={(e) => {
+                      setCpfSearchQuery(e.target.value);
+                      if (cpfSearchFeedback) setCpfSearchFeedback(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSearchCpf();
+                      }
+                    }}
+                    placeholder="Busca rápida por CPF (digite o CPF)..."
+                    className="w-full h-9.5 pl-8 pr-3 rounded-xl bg-[#FAF9F6] border border-[#DDDAD0] text-xs text-[#1F1E1B] placeholder:text-[#9A968D] focus:outline-none focus:border-[#4F5A47]"
+                  />
+                </div>
+                <AuraButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSearchCpf}
+                  disabled={cpfSearching || !cpfSearchQuery.trim()}
+                >
+                  {cpfSearching ? 'Buscando...' : 'Buscar CPF'}
+                </AuraButton>
+              </div>
+              {cpfSearchFeedback && (
+                <p className="text-[11px] text-[#4F5A47] font-medium px-1">
+                  {cpfSearchFeedback}
+                </p>
+              )}
             </div>
 
             <CreatableSelect

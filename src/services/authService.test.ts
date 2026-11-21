@@ -83,3 +83,11 @@ test('AuthService registerSeller provisions seller session awaiting store access
   assert.equal(auth.getCurrentUser()?.email, 'juliana@vendas.com.br');
   assert.equal(auth.isAdmin(), false);
 });
+
+test('AuthService revokeOtherSessions terminates other sessions cleanly', async () => {
+  const auth = new AuthService(null);
+  auth.loginDemo('ADMIN');
+  const res = await auth.revokeOtherSessions();
+  assert.equal(res.ok, true);
+  assert.equal(typeof res.revokedCount, 'number');
+});

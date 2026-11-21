@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ShieldCheck, UserPlus } from 'lucide-react';
+import { AlertCircle, Check, Copy, ShieldCheck, UserPlus } from 'lucide-react';
 import { AuthUser, TeamMember, UserRole } from '../types/auth';
 import { formatDateBR } from '../utils/imei';
 import { AuraButton, StatusBadge } from './ui/AuraPrimitives';
@@ -8,7 +8,7 @@ import { CreatableSelect } from './ui/CreatableSelect';
 interface TeamSettingsViewProps {
   currentUser: AuthUser;
   teamMembers: TeamMember[];
-  onAddTeamMember: (input: { name: string; email: string; role: UserRole }) => void;
+  onAddTeamMember: (input: { name: string; email: string; role: UserRole; password?: string }) => void;
   onToggleMemberActive: (memberId: string) => void;
 }
 
@@ -22,6 +22,19 @@ export function TeamSettingsView({
   const [email, setEmail] = React.useState('');
   const [role, setRole] = React.useState<UserRole>('VENDEDOR');
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [copiedMemberEmail, setCopiedMemberEmail] = React.useState<string | null>(null);
+
+  const handleCopyLink = (memberEmail: string, memberRole: UserRole) => {
+    const roleParam = memberRole === 'ADMIN' ? 'admin' : 'vendedor';
+    const url = `https://opencrm-ashy.vercel.app/?modo=cadastro&perfil=${roleParam}&email=${encodeURIComponent(
+      memberEmail
+    )}`;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+    }
+    setCopiedMemberEmail(memberEmail);
+    setTimeout(() => setCopiedMemberEmail(null), 3000);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +53,7 @@ export function TeamSettingsView({
     <div className="space-y-6">
       <header>
         <h1 className="font-serif text-[32px] leading-tight text-[#1F1E1B]">
-          Configurações & Equipe
+          Configurações &amp; Equipe
         </h1>
         <p className="text-sm text-[#6E6B63] mt-0.5">
           Controle de acessos internos e permissões RBAC da loja AuraCell (exclusivo para Admin).
@@ -67,6 +80,7 @@ export function TeamSettingsView({
           <div className="divide-y divide-[#F0EDE6]">
             {teamMembers.map((member) => {
               const isSelf = member.id === currentUser.id;
+              const isPending = member.isPendingInvite || (!member.active && member.role === 'VENDEDOR');
               return (
                 <div
                   key={member.id}
@@ -91,18 +105,36 @@ export function TeamSettingsView({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
                     <StatusBadge
                       label={member.role === 'ADMIN' ? 'Admin' : 'Vendedor'}
                       tone={member.role === 'ADMIN' ? 'olive' : 'stone'}
                     />
                     <StatusBadge
-                      label={member.active ? 'Ativo' : 'Desativado'}
-                      tone={member.active ? 'olive' : 'terracotta'}
+                      label={isPending ? 'Convite Pendente' : member.active ? 'Ativo' : 'Desativado'}
+                      tone={isPending ? 'amber' : member.active ? 'olive' : 'terracotta'}
                     />
+                    <AuraButton
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopyLink(member.email, member.role)}
+                      title="Copiar link de acesso para o vendedor"
+                    >
+                      {copiedMemberEmail === member.email ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-[#4F5A47]" />
+                          Copiado!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          Copiar link de acesso
+                        </>
+                      )}
+                    </AuraButton>
                     {!isSelf && (
                       <AuraButton
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => onToggleMemberActive(member.id)}
                       >
@@ -125,6 +157,10 @@ export function TeamSettingsView({
             </h2>
           </div>
 
+          <p className="text-xs text-[#6E6B63]">
+            Cadastre novos membros sem exigir senha inicial. O vendedor receberá o link ou poderá criar a senha dele no primeiro acesso.
+          </p>
+
           {errorMsg && (
             <div
               role="alert"
@@ -146,6 +182,7 @@ export function TeamSettingsView({
               <input
                 id="team-name"
                 type="text"
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Fernanda Lima"
@@ -163,6 +200,7 @@ export function TeamSettingsView({
               <input
                 id="team-email"
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="fernanda@auracell.com.br"
@@ -191,7 +229,7 @@ export function TeamSettingsView({
               onChange={(val) => setRole(val as UserRole)}
             />
 
-            <AuraButton type="submit" variant="primary" size="md" className="w-full">
+            <AuraButton type="submit" variant="primary" size="md" className="w-full justify-center">
               <ShieldCheck className="h-4 w-4" />
               Liberar Acesso
             </AuraButton>
