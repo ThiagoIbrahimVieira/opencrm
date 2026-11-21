@@ -9,10 +9,14 @@ export interface AuthUser {
   storeUnit: string;
 }
 
+export type TeamMemberStatus = 'ACTIVE' | 'PENDING' | 'INACTIVE';
+
 export interface TeamMember extends AuthUser {
   active: boolean;
   createdAt: string;
   isPendingInvite?: boolean;
+  status?: TeamMemberStatus;
+  inviteLink?: string;
 }
 
 export interface LoginCredentials {

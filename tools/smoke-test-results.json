@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-20T23:41:51.233Z",
+  "timestamp": "2026-11-21T01:12:11.803Z",
   "backendUrl": "http://localhost:3333",
   "frontendUrl": "http://localhost:5173",
   "testCases": [
@@ -8,7 +8,7 @@
       "title": "Backend Health Check Direct",
       "endpoint": "GET /api/health",
       "status": 200,
-      "durationMs": 3,
+      "durationMs": 5,
       "passed": true,
       "details": {
         "status": "ok",
@@ -20,7 +20,7 @@
       "title": "Frontend Index Page Serve",
       "endpoint": "GET /",
       "status": 200,
-      "durationMs": 5,
+      "durationMs": 17,
       "passed": true,
       "details": {
         "contentLength": 1720
@@ -31,7 +31,7 @@
       "title": "Frontend Vite Reverse Proxy to Backend",
       "endpoint": "GET :5173/api/health",
       "status": 200,
-      "durationMs": 21,
+      "durationMs": 79,
       "passed": true,
       "details": {
         "status": "ok",
@@ -43,7 +43,7 @@
       "title": "Demo Login AuraCell Real DB Authentication",
       "endpoint": "POST /api/auth/login-demo (auracell-jardins)",
       "status": 200,
-      "durationMs": 3413,
+      "durationMs": 3559,
       "passed": true,
       "details": {
         "userName": "Thiago Vasconcelos",
@@ -59,7 +59,7 @@
       "title": "Real Supabase Inventory Retrieval (AuraCell)",
       "endpoint": "GET /api/inventory/primary",
       "status": 200,
-      "durationMs": 1402,
+      "durationMs": 1508,
       "passed": true,
       "details": {
         "itemCount": 1,
@@ -72,7 +72,7 @@
       "title": "Query Multi-Tenant Store Memberships",
       "endpoint": "GET /api/stores/mine",
       "status": 200,
-      "durationMs": 891,
+      "durationMs": 950,
       "passed": true,
       "details": {
         "membershipCount": 3,
@@ -100,7 +100,7 @@
       "title": "Multi-Tenant Store Switching (Sabor & Brasa)",
       "endpoint": "POST /api/stores/switch",
       "status": 200,
-      "durationMs": 1825,
+      "durationMs": 1853,
       "passed": true,
       "details": {
         "activeStoreName": "Sabor & Brasa",
@@ -113,7 +113,7 @@
       "title": "RLS Strict Isolation Verification in Supabase",
       "endpoint": "GET /api/inventory/primary (Sabor & Brasa Context)",
       "status": 200,
-      "durationMs": 1252,
+      "durationMs": 1234,
       "passed": true,
       "details": {
         "itemCount": 1,
@@ -129,7 +129,7 @@
       "title": "Dashboard Summary Telemetry with Supabase DB",
       "endpoint": "GET /api/dashboard/summary",
       "status": 200,
-      "durationMs": 3227,
+      "durationMs": 3452,
       "passed": true,
       "details": {
         "availableSmartphones": 1,

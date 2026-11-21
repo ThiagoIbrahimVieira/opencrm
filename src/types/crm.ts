@@ -126,6 +126,13 @@ export interface Customer {
   activities: CustomerActivity[];
 }
 
+export interface CustomerSearchResult {
+  id: string;
+  name: string;
+  phone: string;
+  cpfLast4: string;
+}
+
 export interface OrderAccessoryLine {
   accessoryId: string;
   sku: string;

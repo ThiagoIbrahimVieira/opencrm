@@ -541,6 +541,20 @@ export class AuthService {
     }
   }
 
+  /**
+   * Revokes all other active sessions for the current authenticated user.
+   */
+  async revokeOtherSessions(): Promise<{ ok: boolean; message: string; revokedCount: number }> {
+    if (typeof window !== 'undefined') {
+      try {
+        return await apiRequest('/api/auth/revoke-sessions', { method: 'POST' });
+      } catch (err: any) {
+        throw new Error(err.message || 'Falha ao revogar demais sessões.');
+      }
+    }
+    return { ok: true, message: 'Demais sessões revogadas com sucesso.', revokedCount: 0 };
+  }
+
   async hydrateSession(): Promise<void> {
     if (typeof window === 'undefined') return;
     try {

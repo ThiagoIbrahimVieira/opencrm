@@ -1,9 +1,9 @@
 import React from 'react';
-import { Printer, X, ShieldCheck, Check, QrCode, ExternalLink, Receipt } from 'lucide-react';
+import { Printer, X, ShieldCheck, Check, QrCode, ExternalLink, Receipt, MessageSquare } from 'lucide-react';
 import { Customer, Order } from '../types/crm';
 import { StoreTemplate } from '../types/template';
 import { formatCurrencyBRL, formatDateBR, formatIMEI, maskCPF } from '../utils/imei';
-import { generateQrMatrix } from '../utils/qrAndWhatsapp';
+import { generateQrMatrix, buildWhatsAppWarrantyShareUrl } from '../utils/qrAndWhatsapp';
 import { AuraButton } from './ui/AuraPrimitives';
 
 interface WarrantyCertificateModalProps {
@@ -32,7 +32,7 @@ export function WarrantyCertificateModal({
   const qrMatrix = React.useMemo(
     () =>
       order && hasWarrantyQr
-        ? generateQrMatrix(`https://opencrm.app/garantia/${order.publicToken}`)
+        ? generateQrMatrix(`https://opencrm-ashy.vercel.app/garantia/${order.publicToken}`)
         : [],
     [order, hasWarrantyQr]
   );
@@ -67,14 +67,33 @@ export function WarrantyCertificateModal({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {hasWarrantyQr && (
-              <AuraButton
-                variant="secondary"
-                size="sm"
-                onClick={() => onPreviewPublicWarranty(order.publicToken)}
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Pré-visualizar página pública do cliente
-              </AuraButton>
+              <>
+                <AuraButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const waUrl = buildWhatsAppWarrantyShareUrl({
+                      phone: customer.phone,
+                      customerName: customer.name,
+                      storeName,
+                      publicToken: order.publicToken,
+                    });
+                    window.open(waUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  title="Enviar link público no WhatsApp do cliente"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-[#2E472D]" />
+                  Enviar Garantia no WhatsApp
+                </AuraButton>
+                <AuraButton
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onPreviewPublicWarranty(order.publicToken)}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Pré-visualizar página pública do cliente
+                </AuraButton>
+              </>
             )}
             <AuraButton
               variant="ghost"

@@ -144,3 +144,22 @@ export function generateWarrantyUuid(seedSuffix?: string): string {
   }
   return `${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}`;
 }
+
+/**
+ * Builds a direct wa.me link for sharing the public warranty page with customer.
+ */
+export function buildWhatsAppWarrantyShareUrl(params: {
+  phone?: string;
+  customerName: string;
+  storeName: string;
+  publicToken: string;
+}): string {
+  const firstName = params.customerName.trim().split(/\s+/)[0] ?? params.customerName;
+  const digits = params.phone ? formatBrazilWhatsAppDigits(params.phone) : '';
+  const warrantyUrl = `https://opencrm-ashy.vercel.app/garantia/${params.publicToken}`;
+  const text = `Olá ${firstName}! Seu comprovante e termo de garantia da loja ${params.storeName} já está disponível online: ${warrantyUrl}`;
+  return digits
+    ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+    : `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
