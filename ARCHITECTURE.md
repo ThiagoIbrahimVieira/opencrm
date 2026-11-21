@@ -129,3 +129,25 @@ Com todos os artefatos técnicos da **Onda 1** e **Onda 2** auditados, versionad
 3. **Fase 5 (Vercel):** Liberado deploy do Frontend Vite a partir da branch `main` com o preset Vite e roteamento via `vercel.json`.
 4. **Fase 6 (Google Cloud OAuth):** Homologação das credenciais `OpenCRM Prod & Local` com as origens de produção injetadas em ambiente seguro.
 5. **Fase 7 (Homologação E2E ao Vivo):** Steve Rogers e Natasha Romanoff executarão a checklist de 12 critérios de aceitação binários no domínio público oficial.
+
+---
+
+## 6. ARQUITETURA OPENCRM V2 & GOVERNANÇA SERVERLESS
+
+### 6.1 Topologia Serverless Vercel (`api/index.ts` e `vercel.json`)
+- **Adaptador Serverless Resiliente:** Fastify encapsulado sob o handler de Node.js da Vercel com barreira assíncrona de encerramento (`res.on('finish')`), impedindo o congelamento precoce de contêineres Lambda durante queries do Prisma.
+- **Prisma Engine Multi-Target:** Configurado `rhel-openssl-3.0.x` para execução nativa nas instâncias Vercel Serverless.
+- **Roteamento Same-Origin:** Rewrite `/api/:path*` → `/api` preserva o contexto de primeira parte para cookies de autenticação `HttpOnly` com política `SameSite=Lax`.
+
+### 6.2 Contratos Canônicos de API (Fases 2 e 4)
+- **`POST /api/auth/register-seller`:** Registro seguro de vendedores com hash Argon2id, associação automática a convites pendentes e emissão de sessão.
+- **`POST /api/auth/revoke-sessions`:** Revogação seletiva ou total de sessões ativas com detecção de reuso em cascata por família de tokens (RFC 6819).
+- **`GET /api/team` com status PENDING:** Gestão de equipe com suporte a convites sem senha prévia, status `PENDING` na interface e links de onboarding.
+- **`GET /api/customers/search`:** Consulta segura de clientes baseada em Blind Index HMAC-SHA256 (`cpfHmac` e `phoneHmac`) com isolamento RLS mandatória (`withTenant`) e DTO mascarado.
+
+### 6.3 Homologação Integrada (QA & AppSec)
+- **55/55 testes automatizados aprovados** (33 backend, 22 frontend).
+- **9/9 casos de smoke test com banco Supabase real aprovados.**
+- **0 erros de compilação TypeScript** em todo o monorepo.
+- **Laudo AppSec Zero-Leak homologado** por Natasha Romanoff.
+
