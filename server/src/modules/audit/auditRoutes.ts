@@ -17,7 +17,7 @@ export async function auditRoutes(app: FastifyInstance) {
       });
     });
 
-    const formatted = logs.map((l) => ({
+    const formatted = (logs as any[]).map((l: any) => ({
       id: l.id,
       timestamp: l.createdAt.toISOString(),
       actor: l.actorName || 'Sistema',
@@ -43,7 +43,7 @@ export async function auditRoutes(app: FastifyInstance) {
       });
     });
 
-    const formatted = entries.map((e) => ({
+    const formatted = (entries as any[]).map((e: any) => ({
       id: e.id,
       timestamp: e.createdAt.toISOString(),
       actor: e.actorName || 'Sistema',

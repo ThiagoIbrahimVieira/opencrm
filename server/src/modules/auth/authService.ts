@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/prisma.js';
 import { env } from '../../config/env.js';
 import { hashPassword, verifyPassword, hashToken } from '../../utils/crypto.js';
@@ -48,7 +49,7 @@ export class AuthService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'loja';
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existingSlug = await tx.store.findUnique({ where: { slug: rawSlug } });
       const finalSlug = existingSlug ? `${rawSlug}-${crypto.randomBytes(3).toString('hex')}` : rawSlug;
 
@@ -221,10 +222,10 @@ export class AuthService {
     }
 
     // Identifica a loja ativa
-    const activeMemberships = user.memberships.filter((m) => m.isActive);
+    const activeMemberships = (user.memberships as any[]).filter((m: any) => m.isActive);
     let activeMembership = activeMemberships[0];
     if (credentials.storeSlug) {
-      const match = activeMemberships.find((m) => m.store.slug === credentials.storeSlug);
+      const match = (activeMemberships as any[]).find((m: any) => m.store.slug === credentials.storeSlug);
       if (match) activeMembership = match;
     }
 
@@ -267,7 +268,7 @@ export class AuthService {
         role: activeRole,
       },
       store: activeMembership?.store || null,
-      stores: activeMemberships.map((m) => ({
+      stores: (activeMemberships as any[]).map((m: any) => ({
         id: m.store.id,
         name: m.store.name,
         slug: m.store.slug,
@@ -302,7 +303,7 @@ export class AuthService {
 
     const passwordHash = await hashPassword(password);
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       let user = await tx.user.findUnique({
         where: { email },
         include: {
@@ -671,7 +672,7 @@ export class AuthService {
         role,
       },
       store: activeMembership?.store || null,
-      stores: activeMemberships.map((m) => ({
+      stores: (activeMemberships as any[]).map((m: any) => ({
         id: m.store.id,
         name: m.store.name,
         slug: m.store.slug,

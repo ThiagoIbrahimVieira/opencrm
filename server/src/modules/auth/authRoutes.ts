@@ -275,7 +275,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const activeMembership = activeStoreId
-      ? memberships.find((m) => m.storeId === activeStoreId) || null
+      ? (memberships as any[]).find((m: any) => m.storeId === activeStoreId) || null
       : memberships[0] || null;
 
     const actualRole = activeMembership ? (activeMembership.role as any) : null;
@@ -291,14 +291,14 @@ export async function authRoutes(app: FastifyInstance) {
         storeUnit: store?.name || '',
       },
       store,
-      stores: memberships.map((m) => ({
+      stores: (memberships as any[]).map((m: any) => ({
         id: m.store.id,
         name: m.store.name,
         slug: m.store.slug,
         segment: m.store.segment,
         role: m.role,
       })),
-      memberships: memberships.map((m) => ({
+      memberships: (memberships as any[]).map((m: any) => ({
         storeId: m.storeId,
         role: m.role,
         store: {

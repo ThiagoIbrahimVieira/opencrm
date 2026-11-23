@@ -18,7 +18,7 @@ export async function withTenant<T>(
     throw new Error('storeId é obrigatório para execução dentro de withTenant.');
   }
 
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // Switch connection role to restricted opencrm_app role
     await tx.$executeRawUnsafe(`SET LOCAL ROLE opencrm_app;`);
     // Bind session store_id for RLS policies
