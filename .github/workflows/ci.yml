@@ -62,18 +62,22 @@ jobs:
         working-directory: ./server
         run: npx prisma generate
 
+      - name: Provisionar Roles do Supabase para CI (anon, authenticated)
+        working-directory: ./server
+        run: npx prisma db execute --file prisma/ci-setup.sql --url "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
+
       - name: Executar Migrações e RLS no PostgreSQL 16
         working-directory: ./server
         env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
-          DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          DATABASE_URL: "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
+          DIRECT_URL: "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
         run: npx prisma migrate deploy
 
       - name: Executar Seed Idempotente (3 Lojas Demo)
         working-directory: ./server
         env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
-          DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          DATABASE_URL: "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
+          DIRECT_URL: "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
           JWT_ACCESS_SECRET: "ci-test-access-secret-minimum-32-characters"
           JWT_REFRESH_SECRET: "ci-test-refresh-secret-minimum-32-characters"
           PII_ENCRYPTION_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -88,8 +92,8 @@ jobs:
       - name: Executar Suíte de Testes do Backend (Vitest)
         working-directory: ./server
         env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
-          DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/opencrm_ci"
+          DATABASE_URL: "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
+          DIRECT_URL: "postgresql://postgres:postgrespassword@127.0.0.1:5432/opencrm_ci"
           JWT_ACCESS_SECRET: "ci-test-access-secret-minimum-32-characters"
           JWT_REFRESH_SECRET: "ci-test-refresh-secret-minimum-32-characters"
           PII_ENCRYPTION_KEY_HEX: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
