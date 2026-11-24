@@ -275,7 +275,7 @@ export class AuthService {
         segment: m.store.segment,
         role: m.role,
       })),
-      memberships: activeMemberships.map((m) => ({
+      memberships: (activeMemberships as any[]).map((m: any) => ({
         storeId: m.storeId,
         role: m.role,
         store: {
@@ -400,14 +400,14 @@ export class AuthService {
           role: activeRole,
         },
         store: activeMembership?.store || null,
-        stores: activeMemberships.map((m) => ({
+        stores: (activeMemberships as any[]).map((m: any) => ({
           id: m.store.id,
           name: m.store.name,
           slug: m.store.slug,
           segment: m.store.segment,
           role: m.role,
         })),
-        memberships: activeMemberships.map((m) => ({
+        memberships: (activeMemberships as any[]).map((m: any) => ({
           storeId: m.storeId,
           role: m.role,
           store: {
@@ -679,7 +679,7 @@ export class AuthService {
         segment: m.store.segment,
         role: m.role,
       })),
-      memberships: activeMemberships.map((m) => ({
+      memberships: (activeMemberships as any[]).map((m: any) => ({
         storeId: m.storeId,
         role: m.role,
         store: {
@@ -759,14 +759,14 @@ export class AuthService {
         role: activeRole,
       },
       store: activeMembership?.store || null,
-      stores: updatedUser.memberships.map((m) => ({
+      stores: ((updatedUser.memberships || []) as any[]).map((m: any) => ({
         id: m.store.id,
         name: m.store.name,
         slug: m.store.slug,
         segment: m.store.segment,
         role: m.role,
       })),
-      memberships: updatedUser.memberships.map((m) => ({
+      memberships: ((updatedUser.memberships || []) as any[]).map((m: any) => ({
         storeId: m.storeId,
         role: m.role,
         store: {
@@ -882,8 +882,8 @@ export class AuthService {
       }
 
       const currentMembership = decoded.activeStoreId
-        ? user.memberships.find((m) => m.storeId === decoded.activeStoreId)
-        : user.memberships[0];
+        ? (user.memberships as any[]).find((m: any) => m.storeId === decoded.activeStoreId)
+        : (user.memberships as any[])[0];
 
       const activeStoreId = currentMembership?.storeId || null;
       const role = (currentMembership?.role as UserRole) || null;
@@ -933,7 +933,7 @@ export class AuthService {
           role,
         },
         store: currentMembership?.store || null,
-        stores: user.memberships.map((m) => ({
+        stores: ((user.memberships || []) as any[]).map((m: any) => ({
           id: m.store.id,
           name: m.store.name,
           slug: m.store.slug,

@@ -35,8 +35,8 @@ export async function dashboardRoutes(app: FastifyInstance) {
         tx.customer.count({ where: { storeId, status: 'INATIVO' } }),
       ]);
 
-      const totalAccessoryUnits = allAccessories.reduce((acc, curr) => acc + curr.stockQty, 0);
-      const totalRevenueCents = orders.reduce((acc, curr) => acc + curr.totalCents, 0);
+      const totalAccessoryUnits = allAccessories.reduce((acc: number, curr: any) => acc + (curr.stockQty || 0), 0);
+      const totalRevenueCents = orders.reduce((acc: number, curr: any) => acc + (curr.totalCents || 0), 0);
 
       const now = new Date();
       const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
